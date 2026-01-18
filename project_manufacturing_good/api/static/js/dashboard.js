@@ -412,4 +412,55 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    // 9. Report Downloads Logic
+    function downloadReport(url, filename) {
+        fetch(url)
+            .then(res => {
+                if (res.status === 200) return res.blob();
+                throw new Error("Erreur lors de la génération du rapport");
+            })
+            .then(blob => {
+                const link = document.createElement('a');
+                link.href = window.URL.createObjectURL(blob);
+                link.download = filename;
+                link.click();
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Impossible de télécharger le rapport. Veuillez réessayer plus tard.");
+            });
+    }
+
+    const btnExport = document.getElementById('btn-export-report');
+    if (btnExport) {
+        btnExport.addEventListener('click', () => {
+            downloadReport('/api/reports/export_global', `Global_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+        });
+    }
+
+    const btnWeekly = document.getElementById('btn-weekly-report');
+    if (btnWeekly) {
+        btnWeekly.addEventListener('click', () => {
+            downloadReport('/api/reports/weekly', `Weekly_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+        });
+    }
+
+    const btnAudit = document.getElementById('btn-monthly-audit');
+    if (btnAudit) {
+        btnAudit.addEventListener('click', () => {
+            downloadReport('/api/reports/audit', `Audit_Mensuel_${new Date().toISOString().split('T')[0]}.xlsx`);
+        });
+    }
+
+    // 10. Logout Logic
+    const btnLogout = document.getElementById('btn-logout');
+    if (btnLogout) {
+        btnLogout.addEventListener('click', () => {
+            if (confirm("Voulez-vous vraiment vous déconnecter ?")) {
+                // Simulate logout
+                window.location.href = '/login';
+            }
+        });
+    }
+
 });

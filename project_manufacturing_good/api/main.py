@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Request
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -307,9 +307,14 @@ async def ask_question(request: Request):
         "answer": answer
     })
 
+@app.get("/login", response_class=HTMLResponse)
+async def read_login():
+    with open("api/static/login.html", "r", encoding="utf-8") as f:
+        return f.read()
+
 @app.get("/")
 def read_root():
-    return RedirectResponse(url="/dashboard")
+    return RedirectResponse(url="/login")
 
 @app.post("/predict/csv")
 async def predict_csv(
@@ -409,6 +414,139 @@ def get_all_predictions(limit: int = 10, db: Session = Depends(get_enterprise_db
         })
 
     return clean_predictions
+
+# --- Reporting Endpoints ---
+
+@app.get("/api/reports/export_global")
+def export_global_report(db: Session = Depends(get_enterprise_db)):
+    """
+    Exports a global report (Excel) containing:
+    1. Key KPIs
+    2. Recent Predictions
+    3. Investment Forecast
+    """
+    try:
+        # 1. Fetch Data
+        # KPIs
+        kpis = get_kpi_stats(db_ent=db) # Reusing internal function logic? 
+        # Actually calling the function directly might fail if it depends on Depends.
+        # Let's just fetch raw data to avoid dependency injection issues in direct call.
+        
+        # Simpler approach: Create DataFrames directly
+        
+        # Sheet 1: KPIs
+        kpi_data = [{
+            "Metric": "Total Cost", "Value": kpis.get("total_cost", 0)
+        }, {
+            "Metric": "Critical Fleet", "Value": kpis.get("critical_fleet", 0)
+        }, {
+            "Metric": "Reliability Score", "Value": kpis.get("reliability", 0)
+        }]
+        df_kpi = pd.DataFrame(kpi_data)
+        
+        # Sheet 2: Predictions (fetch last 50)
+        preds = get_all_predictions(limit=50, db=db)
+        df_preds = pd.DataFrame(preds)
+        
+        # Generate Excel
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_kpi.to_excel(writer, sheet_name='KPIs', index=False)
+            df_preds.to_excel(writer, sheet_name='Predictions', index=False)
+            
+        output.seek(0)
+        
+        headers = {
+            'Content-Disposition': 'attachment; filename="Global_Report.xlsx"'
+        }
+        return Response(content=output.getvalue(), media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers=headers)
+        
+    except Exception as e:
+        print(f"Error Export Global: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/reports/weekly")
+def export_weekly_report(db: Session = Depends(get_enterprise_db)):
+    """
+    Exports a weekly performance report.
+    """
+    try:
+        # Mocking a weekly summary or aggregating logic
+        # For now, let's dump the last 7 days of predictions and maintenance logs
+        
+        # 1. Last 7 days predictions
+        # Note: In a real app we would filter by date. Here we take last 20 for demo.
+        preds = get_all_predictions(limit=20, db=db)
+        df_preds = pd.DataFrame(preds)
+        
+        # 2. Maintenances (Mock logic or fetch from DB)
+        # Fetching some maintenance logs
+        logs = db.query(FactMaintenanceLog).limit(20).all()
+        log_data = [{
+            "Log ID": l.log_id,
+            "Cost": l.cost, 
+            "Date": l.date_iso,
+            "Vehicle ID": l.vehicle_id
+        } for l in logs]
+        df_logs = pd.DataFrame(log_data)
+        
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_preds.to_excel(writer, sheet_name='Weekly Predictions', index=False)
+            df_logs.to_excel(writer, sheet_name='Weekly Maintenance', index=False)
+            
+        output.seek(0)
+        headers = {
+            'Content-Disposition': 'attachment; filename="Weekly_Report.xlsx"'
+        }
+        return Response(content=output.getvalue(), media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers=headers)
+
+    except Exception as e:
+        print(f"Error Weekly Report: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/reports/audit")
+def export_audit_report(db: Session = Depends(get_enterprise_db)):
+    """
+    Exports a full monthly audit.
+    """
+    try:
+        # Full dump of maintenance, inventory, etc.
+        
+        # 1. Inventory
+        inventory = db.query(FactInventory, DimPart).join(DimPart, FactInventory.part_id == DimPart.part_id).all()
+        inv_data = [{
+            "Part Name": row.DimPart.part_name,
+            "Current Stock": row.FactInventory.current_stock,
+            "Reorder Level": row.FactInventory.reorder_level,
+            "Unit Cost": row.DimPart.unit_cost
+        } for row in inventory]
+        df_inv = pd.DataFrame(inv_data)
+        
+        # 2. Financials (Investment Forecast)
+        fin = db.query(FactInvestmentForecast).all()
+        fin_data = [{
+            "Date ID": f.time_id,
+            "Estimated Cost": f.estimated_cost,
+            "ROI Prediction": f.roi_prediction
+        } for f in fin]
+        df_fin = pd.DataFrame(fin_data)
+        
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_inv.to_excel(writer, sheet_name='Inventory Audit', index=False)
+            df_fin.to_excel(writer, sheet_name='Financial Audit', index=False)
+            
+        output.seek(0)
+        headers = {
+            'Content-Disposition': 'attachment; filename="Monthly_Audit.xlsx"'
+        }
+        return Response(content=output.getvalue(), media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', headers=headers)
+
+    except Exception as e:
+        print(f"Error Audit Report: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == "__main__":
     import uvicorn

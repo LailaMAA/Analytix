@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/pc/Downloads/project_manufacturing/mlruns/741600108547450673/4cd54256955b4fa5b78aa8101bd15ed7/artifacts
+end_time: 1768731654426
+entry_point_name: ''
+experiment_id: '741600108547450673'
+lifecycle_stage: active
+run_id: 4cd54256955b4fa5b78aa8101bd15ed7
+run_name: peaceful-grub-218
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768731594410
+status: 3
+tags: []
+user_id: pc

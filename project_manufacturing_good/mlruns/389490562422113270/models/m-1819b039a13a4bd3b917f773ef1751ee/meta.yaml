@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/pc/Downloads/project_manufacturing/mlruns/389490562422113270/models/m-1819b039a13a4bd3b917f773ef1751ee/artifacts
+creation_timestamp: 1768708901633
+experiment_id: '389490562422113270'
+last_updated_timestamp: 1768708948727
+model_id: m-1819b039a13a4bd3b917f773ef1751ee
+model_type: null
+name: model
+source_run_id: 9d52b241201a4a9b96844514964b6424
+status: 2
+status_message: null

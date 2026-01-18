@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/pc/Downloads/project_manufacturing/mlruns/741600108547450673/133c3678c51f486c9502783cd66ca68a/artifacts
+end_time: 1768734604158
+entry_point_name: ''
+experiment_id: '741600108547450673'
+lifecycle_stage: active
+run_id: 133c3678c51f486c9502783cd66ca68a
+run_name: bold-squirrel-205
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768734560974
+status: 3
+tags: []
+user_id: pc

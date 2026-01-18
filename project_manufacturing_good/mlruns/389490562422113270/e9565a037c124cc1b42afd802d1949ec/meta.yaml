@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/pc/Downloads/project_manufacturing/mlruns/389490562422113270/e9565a037c124cc1b42afd802d1949ec/artifacts
+end_time: 1768728259950
+entry_point_name: ''
+experiment_id: '389490562422113270'
+lifecycle_stage: active
+run_id: e9565a037c124cc1b42afd802d1949ec
+run_name: judicious-lamb-945
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768728259340
+status: 4
+tags: []
+user_id: pc

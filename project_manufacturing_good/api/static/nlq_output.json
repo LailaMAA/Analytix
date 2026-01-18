@@ -1,0 +1,28 @@
+{
+    "question": "donne les pannes pour la region casablanca settat pour le mois 8",
+    "answer": "En août, la région Casablanca-Settat a enregistré plusieurs types de pannes, notamment des problèmes de suspension, des surchauffes moteur et des défaillances de batterie. Les pièces les plus souvent impliquées incluent les courroies de distribution, les batteries 12V et les pompes à eau. Ces données permettent d'identifier les composants nécessitant une attention particulière pour réduire les pannes.",
+    "sql": "SELECT \n    fvf.fact_id,\n    fvf.vehicle_id,\n    dr.region_name,\n    dd.year,\n    dd.month,\n    dft.failure_name,\n    dp.part_name,\n    fvf.total_mileage,\n    fvf.engine_rpm,\n    fvf.engine_temperature,\n    fvf.oil_pressure,\n    fvf.days_before_failure,\n    fvf.last_maintenance_date\nFROM \n    FACT_VEHICLE_FAILURE fvf\nJOIN \n    DIM_REGION dr ON fvf.region_id = dr.region_id\nJOIN \n    DIM_DATE dd ON fvf.time_id = dd.date_id\nJOIN \n    DIM_FAILURE_TYPE dft ON fvf.failure_type_id = dft.failure_type_id\nJOIN \n    DIM_PART dp ON fvf.part_id = dp.part_id\nWHERE \n    dr.region_name = 'Casablanca-Settat'\n    AND dd.month = 8;",
+    "visualization": {
+        "type": "bar",
+        "title": "Répartition des pannes par type - Casablanca-Settat (Août)",
+        "labels": [
+            "Problème suspension",
+            "Surchauffe moteur",
+            "Problème turbo",
+            "Défaillance batterie",
+            "Fuite d'huile",
+            "Panne électrique",
+            "Défaut injection"
+        ],
+        "values": [
+            5,
+            4,
+            2,
+            1,
+            1,
+            1,
+            1
+        ]
+    },
+    "status": "success"
+}

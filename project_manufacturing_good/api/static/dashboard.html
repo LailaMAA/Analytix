@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AnalytixCare Pro Max | IA Industrielle</title>
+
+    <!-- Icons & Fonts -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Charting Engines -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+    <!-- Pro Max Styles -->
+    <link rel="stylesheet" href="/static/css/pro_max.css">
+</head>
+
+<body>
+
+    <!-- Pro Sidebar -->
+    <nav class="sidebar glass">
+        <div class="logo-container">
+            <div class="logo-icon">
+                <ion-icon name="car-sport" style="color: white; font-size: 1.5rem;"></ion-icon>
+            </div>
+            <span class="logo-text">AnalytixCare</span>
+        </div>
+
+        <ul class="nav-menu">
+            <li>
+                <a href="#" class="nav-link active" data-view="view-dashboard">
+                    <ion-icon name="grid-outline"></ion-icon>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" class="nav-link" data-view="view-predictions">
+                    <ion-icon name="pulse-outline"></ion-icon>
+                    <span>Intelligence</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" class="nav-link" data-view="view-reports">
+                    <ion-icon name="document-text-outline"></ion-icon>
+                    <span>Rapports</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" class="nav-link" data-view="view-settings">
+                    <ion-icon name="settings-outline"></ion-icon>
+                    <span>Paramètres</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="user-pill glass"
+            style="margin-top: auto; padding: 12px; border-radius: 16px; display: flex; align-items: center; gap: 10px;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--vibrant-purple);"></div>
+            <div style="font-size: 0.85rem;">
+                <div style="font-weight: 600;">Directeur Comm.</div>
+                <div style="color: var(--text-muted); font-size: 0.75rem;">Administrateur</div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Viewport -->
+    <main class="main-viewport">
+
+        <!-- Top Header -->
+        <header class="top-header">
+            <div class="page-identity">
+                <h1 id="pageTitle">Vue d'ensemble</h1>
+                <p id="currentDate">--</p>
+            </div>
+
+            <div style="display: flex; gap: 1rem;">
+                <button id="btn-import-csv" class="glass"
+                    style="padding: 0.8rem 1.5rem; border-radius: 14px; border: 1px solid var(--glass-border); color: white; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    <ion-icon name="cloud-upload-outline" style="color: var(--electric-blue);"></ion-icon> Importer
+                    Données
+                </button>
+                <button id="btn-export-report"
+                    style="padding: 0.8rem 1.5rem; border-radius: 14px; border: none; background: white; color: black; font-weight: 600; cursor: pointer;">
+                    Exporter Rapport
+                </button>
+            </div>
+        </header>
+
+        <!-- DASHBOARD VIEW -->
+        <section id="view-dashboard" class="view-section">
+            <div class="grid-pro">
+
+                <!-- KPI Row -->
+                <div class="glass-card kpi-box stagger-1">
+                    <span class="kpi-label">Flotte Critique</span>
+                    <div class="kpi-main">
+                        <span class="kpi-val" id="kpi-critical-value">--</span>
+                        <span class="kpi-trend trend-up">+5.2%</span>
+                    </div>
+                </div>
+
+                <div class="glass-card kpi-box stagger-2">
+                    <span class="kpi-label">ROI Investissement</span>
+                    <div class="kpi-main">
+                        <span class="kpi-val" id="kpi-roi-value">--%</span>
+                        <span class="kpi-trend trend-down">-1.4%</span>
+                    </div>
+                </div>
+
+                <div class="glass-card kpi-box stagger-3">
+                    <span class="kpi-label">Efficacité RH</span>
+                    <div class="kpi-main">
+                        <span class="kpi-val" id="kpi-hr-value">--%</span>
+                        <span class="kpi-trend trend-down"
+                            style="background: rgba(59, 130, 246, 0.1); color: var(--electric-blue);">Stable</span>
+                    </div>
+                </div>
+
+                <div class="glass-card kpi-box stagger-4">
+                    <span class="kpi-label">Risque Stock</span>
+                    <div class="kpi-main">
+                        <span class="kpi-val" id="kpi-stock-value">--</span>
+                        <span class="kpi-trend trend-up">Attention</span>
+                    </div>
+                </div>
+
+                <!-- Financial Intelligence Chart -->
+                <div class="glass-card finance-intel stagger-2">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                        <h3>Intelligence Financière & Rentabilité</h3>
+                        <ion-icon name="trending-up" style="color: var(--emerald-green); font-size: 1.5rem;"></ion-icon>
+                    </div>
+                    <div id="financialChart" style="height: 350px;"></div>
+                </div>
+
+                <!-- Regional Risk Analysis -->
+                <div class="glass-card resource-opt stagger-3">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                        <h3>Allocation Budgétaire par Région</h3>
+                        <ion-icon name="map-outline"
+                            style="color: var(--vibrant-purple); font-size: 1.5rem;"></ion-icon>
+                    </div>
+                    <canvas id="regionChart" style="height: 350px;"></canvas>
+                </div>
+
+                <!-- Recent Predictions Table -->
+                <div class="glass-card" style="grid-column: span 12; margin-top: 1rem;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                        <h3>Prédictions IA en Temps Réel</h3>
+                        <button class="nav-link" data-view="view-predictions"
+                            style="padding: 0.5rem 1rem; margin: 0; background: rgba(255,255,255,0.05);">Historique
+                            Complet</button>
+                    </div>
+                    <div style="overflow-x: auto;">
+                        <table class="premium-table" id="predictionsTable">
+                            <thead>
+                                <tr>
+                                    <th>Véhicule ID</th>
+                                    <th>Type de Panne</th>
+                                    <th>Échéance (Jours)</th>
+                                    <th>Probabilité</th>
+                                    <th>Statut Décisionnel</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="5"
+                                        style="text-align: center; color: var(--text-muted); padding: 3rem;">
+                                        Initialisation de l'IA...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- PREDICTIONS VIEW (Hidden) -->
+        <section id="view-predictions" class="view-section hidden">
+            <div class="glass-card">
+                <h3 style="margin-bottom: 2rem;">Historique d'Intelligence Artificielle</h3>
+                <div style="overflow-x: auto;">
+                    <table class="premium-table" id="allPredictionsTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Vehicle ID</th>
+                                <th>Modèle</th>
+                                <th>Région</th>
+                                <th>Panne</th>
+                                <th>Jours Restants</th>
+                                <th>Garantie</th>
+                                <th>Impact</th>
+                            </tr>
+                        </thead>
+                        <tbody id="allPredictionsBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- REPORTS VIEW (Hidden) -->
+        <section id="view-reports" class="view-section hidden">
+            <div class="grid-pro">
+                <div class="glass-card" style="grid-column: span 6;">
+                    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem;">
+                        <ion-icon name="document-attach-outline"
+                            style="font-size: 2.5rem; color: var(--electric-blue);"></ion-icon>
+                        <h3>Rapports de Performance</h3>
+                    </div>
+                    <p style="color: var(--text-muted); margin-bottom: 2rem;">Consultez les analyses détaillées de
+                        rentabilité et les prévisions de pannes par région.</p>
+                    <button class="glass"
+                        style="width: 100%; padding: 1rem; border-radius: 12px; color: white; cursor: pointer; border: 1px solid var(--glass-border);">Générer
+                        Rapport Hebdomadaire</button>
+                </div>
+                <div class="glass-card" style="grid-column: span 6;">
+                    <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem;">
+                        <ion-icon name="stats-chart-outline"
+                            style="font-size: 2.5rem; color: var(--vibrant-purple);"></ion-icon>
+                        <h3>Audit Maintenance</h3>
+                    </div>
+                    <p style="color: var(--text-muted); margin-bottom: 2rem;">Audit complet sur l'utilisation des pièces
+                        de rechange et l'efficacité des techniciens.</p>
+                    <button class="glass"
+                        style="width: 100%; padding: 1rem; border-radius: 12px; color: white; cursor: pointer; border: 1px solid var(--glass-border);">Télécharger
+                        Audit Mensuel</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SETTINGS VIEW (Hidden) -->
+        <section id="view-settings" class="view-section hidden">
+            <div class="grid-pro">
+                <div class="glass-card" style="grid-column: span 6;">
+                    <h3>Thème Premium</h3>
+                    <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Configuration de l'identité visuelle.
+                    </p>
+                    <div style="display: flex; gap: 1rem;">
+                        <div class="color-option active"
+                            style="background: var(--electric-blue); width: 40px; height: 40px; border-radius: 50%; cursor: pointer; border: 2px solid white;">
+                        </div>
+                        <div class="color-option"
+                            style="background: var(--vibrant-purple); width: 40px; height: 40px; border-radius: 50%;">
+                        </div>
+                        <div class="color-option"
+                            style="background: var(--emerald-green); width: 40px; height: 40px; border-radius: 50%;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- AI Nexus Chat -->
+    <div style="position: fixed; bottom: 2rem; right: 2rem; z-index: 1000;">
+        <div id="chatWindow" class="glass"
+            style="width: 380px; height: 500px; border-radius: 24px; display: none; margin-bottom: 1rem; display: flex; flex-direction: column; overflow: hidden; opacity: 0; transform: scale(0.9); transition: all 0.3s cubic-bezier(0.19, 1, 0.22, 1); pointer-events: none;">
+            <div
+                style="padding: 1.5rem; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 700; color: white;">Assistant Nexus PRO</span>
+                <ion-icon name="close-outline" id="closeChat" style="cursor: pointer; font-size: 1.5rem;"></ion-icon>
+            </div>
+            <div id="chatMessages"
+                style="flex: 1; padding: 1.5rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem;">
+                <div class="glass"
+                    style="padding: 1rem; border-radius: 16px; align-self: flex-start; max-width: 80%; font-size: 0.9rem;">
+                    Bienvenue dans l'interface Pro Max. Je suis prêt à analyser vos pannes et vos coûts
+                    d'investissement.
+                </div>
+            </div>
+            <div style="padding: 1rem; border-top: 1px solid var(--glass-border); display: flex; gap: 10px;">
+                <input type="text" id="chatInput" placeholder="Demander une analyse budget..."
+                    style="flex: 1; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); padding: 0.8rem 1rem; border-radius: 12px; color: white; outline: none;">
+                <button id="sendBtn"
+                    style="background: var(--electric-blue); border: none; padding: 0.8rem; border-radius: 12px; color: white; cursor: pointer;">
+                    <ion-icon name="send"></ion-icon>
+                </button>
+            </div>
+        </div>
+        <button id="toggleChat"
+            style="width: 65px; height: 65px; border-radius: 50%; border: none; background: white; color: black; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; cursor: pointer; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+            <ion-icon name="sparkles-outline"></ion-icon>
+        </button>
+    </div>
+
+    <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+    <script src="/static/js/dashboard.js"></script>
+    <script>
+        // Inline script to handle basic toggle before main script loads if needed
+        document.getElementById('toggleChat').addEventListener('click', () => {
+            const win = document.getElementById('chatWindow');
+            const isActive = win.style.opacity === '1';
+            win.style.opacity = isActive ? '0' : '1';
+            win.style.transform = isActive ? 'scale(0.9)' : 'scale(1)';
+            win.style.pointerEvents = isActive ? 'none' : 'all';
+        });
+        document.getElementById('closeChat').addEventListener('click', () => {
+            const win = document.getElementById('chatWindow');
+            win.style.opacity = '0';
+            win.style.transform = 'scale(0.9)';
+            win.style.pointerEvents = 'none';
+        });
+
+        // Date init
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('currentDate').textContent = new Date().toLocaleDateString('fr-FR', options);
+    </script>
+</body>
+
+</html>

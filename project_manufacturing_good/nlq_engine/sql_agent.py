@@ -121,7 +121,10 @@ Context & Rules:
 - The data is about Manufacturing, Vehicles, Failures, and Maintenance.
 - 'DIM_VEHICLE' is the central dimension.
 - 'FACT_VEHICLE_FAILURE' contains historical failures.
-- 'FACT_PREDICTION' contains predictive AI data (probabilité panne, jours avant panne).
+- 'FACT_PREDICTION' contains FUTURE AI PREDICTIONS. 
+    - Key columns: `predicted_failure_type`, `failure_probability` (0.0 to 1.0), `predicted_days_before_failure`.
+    - Always SELECT `predicted_failure_type` and count/average when asked about future risks.
+    - JOIN `DIM_VEHICLE` to filter by `engine_model` or `vehicle_age`.
 - 'FACT_MAINTENANCE_LOG' contains costs.
 - 'FACT_INVESTMENT_FORECAST' contains ROI/Financials.
 - RETURN ONLY THE SQL QUERY. No markdown (```sql), no explanations.

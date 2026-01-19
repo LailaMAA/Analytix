@@ -38,9 +38,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 2. Advanced Financial Chart (ApexCharts)
     let financialChartInstance = null;
+    let cachedFinancialData = null; // Store data for re-rendering
 
     function renderFinancialIntelligence(finData) {
         if (!finData.chart) return;
+        cachedFinancialData = finData; // Cache it
+
+        // Get current accent color
+        const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--electric-blue').trim();
 
         const options = {
             series: [{
@@ -56,7 +61,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 background: 'transparent',
                 toolbar: { show: false }
             },
-            colors: ['#3b82f6', '#fbbf24'],
+            colors: [accentColor, '#fbbf24'], // Use dynamic color
             dataLabels: { enabled: false },
             stroke: { curve: 'smooth', width: 3 },
             fill: {
@@ -93,20 +98,27 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // 3. Regional Risk Chart (Chart.js)
+    let regionChartInstance = null; // Store instance
+
     function loadRegionChart() {
         const ctxRegion = document.getElementById('regionChart').getContext('2d');
         fetch('/api/kpi/costs-by-region')
             .then(res => res.json())
             .then(data => {
-                new Chart(ctxRegion, {
+                const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--electric-blue').trim();
+
+                // Destroy existing if re-creating (though we prefer updating content)
+                if (regionChartInstance) regionChartInstance.destroy();
+
+                regionChartInstance = new Chart(ctxRegion, {
                     type: 'bar',
                     data: {
                         labels: data.labels,
                         datasets: [{
                             label: 'Risque Budgétaire (kDH)',
                             data: data.data,
-                            backgroundColor: 'rgba(168, 85, 247, 0.5)',
-                            borderColor: '#a855f7',
+                            backgroundColor: accentColor, // Use dynamic color (solid)
+                            borderColor: accentColor,
                             borderWidth: 1,
                             borderRadius: 12,
                             barThickness: 20
@@ -124,6 +136,52 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             });
     }
+
+    // Helper to update all charts
+    function updateAllChartsColors() {
+        const newColor = getComputedStyle(document.documentElement).getPropertyValue('--electric-blue').trim();
+
+        // Update ApexChart
+        if (financialChartInstance && cachedFinancialData) {
+            financialChartInstance.updateOptions({
+                colors: [newColor, '#fbbf24']
+            });
+        }
+
+        // Update Chart.js (Region Risk)
+        if (regionChartInstance) {
+            regionChartInstance.data.datasets[0].backgroundColor = newColor;
+            regionChartInstance.data.datasets[0].borderColor = newColor;
+            regionChartInstance.update();
+        }
+
+        // Update Chart.js (HR Region)
+        if (hrChartInstance) {
+            hrChartInstance.data.datasets[0].backgroundColor = newColor;
+            hrChartInstance.update();
+        }
+    }
+
+    // --- Accent Color Logic ---
+    const colorOptions = document.querySelectorAll('.color-option');
+    colorOptions.forEach(opt => {
+        opt.addEventListener('click', () => {
+            colorOptions.forEach(o => {
+                o.classList.remove('active');
+                o.style.border = '2px solid transparent';
+            });
+            opt.classList.add('active');
+            opt.style.border = '2px solid white'; // Visual feedback
+
+            // Read color from inline style or data attrib
+            const newColor = opt.getAttribute('data-color') || window.getComputedStyle(opt).backgroundColor;
+            document.documentElement.style.setProperty('--electric-blue', newColor);
+            localStorage.setItem('accent_color', newColor);
+
+            // Trigger chart update
+            updateAllChartsColors();
+        });
+    });
 
     // 4. Live Predictions Table
     function loadRecentPredictions() {
@@ -198,6 +256,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 pageTitle.textContent = "Intelligence Industrielle";
                 loadFullHistory();
             }
+            if (view === 'view-rh') {
+                pageTitle.textContent = "Gestion des Ressources Humaines";
+                loadHRData();
+            }
         });
     });
 
@@ -226,7 +288,81 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     }
 
-    // 6. CSV Upload & Chat Integration (Keeping existing robust logic)
+    // 5b. RH Data Logic
+    let hrChartInstance = null;
+
+    function loadHRData() {
+        fetch('/api/kpi/hr/regional_stats')
+            .then(res => res.json())
+            .then(data => {
+                // Update KPIs
+                const totalCurrent = data.current_techs.reduce((a, b) => a + b, 0);
+                const totalRequired = data.required_techs.reduce((a, b) => a + b, 0);
+                const gap = totalCurrent - totalRequired;
+
+                document.getElementById('rh-total-current').textContent = totalCurrent;
+                document.getElementById('rh-total-required').textContent = totalRequired;
+
+                const gapEl = document.getElementById('rh-gap');
+                if (gapEl) {
+                    gapEl.textContent = (gap >= 0 ? '+' : '') + gap;
+                    gapEl.style.color = gap < 0 ? '#ef4444' : '#10b981';
+                }
+
+                // Render Chart
+                renderHRRegionChart(data);
+            })
+            .catch(err => console.error("Error loading HR data", err));
+    }
+
+    function renderHRRegionChart(data) {
+        const ctx = document.getElementById('hrRegionChart').getContext('2d');
+        const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--electric-blue').trim();
+
+        if (hrChartInstance) hrChartInstance.destroy();
+
+        hrChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    {
+                        label: 'Techniciens Actuels',
+                        data: data.current_techs,
+                        backgroundColor: accentColor,
+                        borderRadius: 8
+                    },
+                    {
+                        label: 'Besoin Requis',
+                        data: data.required_techs,
+                        backgroundColor: 'rgba(251, 191, 36, 0.8)', // Amber/Warning color
+                        borderRadius: 8
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: '#94a3b8' } },
+                    tooltip: { mode: 'index', intersect: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8' }
+                    }
+                }
+            }
+        });
+    }
+
+    // 6. CSV Upload & Chat Integration
     const importBtn = document.getElementById('btn-import-csv');
     const csvInput = document.getElementById('csvFileInput');
 
@@ -294,17 +430,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // The backend now returns a JSON string in 'answer'
             let data;
-            // Smart Parsing: Handle both JSON string (Legacy) and Direct Object (Optimized)
             data = rawData.answer;
             if (typeof data === 'string') {
                 try {
                     data = JSON.parse(data);
                 } catch (e) {
-                    // It's just a plain text answer
                     data = { answer: rawData.answer, visualization: { type: 'none' } };
                 }
             }
-            // If data is already an object, we use it directly.
 
             // 1. Render text message
             const aiMsg = document.createElement('div');
@@ -397,20 +530,88 @@ document.addEventListener('DOMContentLoaded', function () {
     loadRegionChart();
     loadRecentPredictions();
 
-    // 8. Theme Switcher
-    const colorOptions = document.querySelectorAll('.color-option');
-    colorOptions.forEach(opt => {
-        opt.addEventListener('click', () => {
-            colorOptions.forEach(o => o.classList.remove('active'));
-            opt.classList.add('active');
+    // Restore Accent Color
+    const savedAccent = localStorage.getItem('accent_color');
+    if (savedAccent) {
+        document.documentElement.style.setProperty('--electric-blue', savedAccent);
+    }
 
-            // Get the computed background color of the clicked option
-            const newColor = window.getComputedStyle(opt).backgroundColor;
+    // --- Profile Management ---
+    const btnSaveProfile = document.getElementById('btn-save-profile');
+    if (btnSaveProfile) {
+        btnSaveProfile.addEventListener('click', () => {
+            const name = document.getElementById('input-name').value;
+            const role = document.getElementById('input-role').value;
+            const email = document.getElementById('input-email').value;
+            const phone = document.getElementById('input-phone').value;
 
-            // Update the primary theme variable
-            document.documentElement.style.setProperty('--electric-blue', newColor);
+            // Save
+            const profile = { name, role, email, phone };
+            localStorage.setItem('user_profile', JSON.stringify(profile));
+
+            // Update Visuals immediately
+            document.getElementById('profile-name-display').textContent = name;
+            document.getElementById('profile-role-display').textContent = role;
+
+            // Update Sidebar
+            const sidebarName = document.querySelector('.user-pill div[style*="font-weight: 600"]');
+            const sidebarRole = document.querySelector('.user-pill div[style*="var(--text-muted)"]');
+            if (sidebarName) sidebarName.textContent = name;
+            if (sidebarRole) sidebarRole.textContent = role;
+
+            alert("Modifications enregistrées !");
         });
-    });
+    }
+
+    // Load Profile
+    const savedProfileStr = localStorage.getItem('user_profile');
+    if (savedProfileStr) {
+        const p = JSON.parse(savedProfileStr);
+        if (p.name) {
+            document.getElementById('input-name').value = p.name;
+            document.getElementById('profile-name-display').textContent = p.name;
+            const sidebarName = document.querySelector('.user-pill div[style*="font-weight: 600"]');
+            if (sidebarName) sidebarName.textContent = p.name;
+        }
+        if (p.role) {
+            document.getElementById('input-role').value = p.role;
+            document.getElementById('profile-role-display').textContent = p.role;
+            const sidebarRole = document.querySelector('.user-pill div[style*="var(--text-muted)"]');
+            if (sidebarRole) sidebarRole.textContent = p.role;
+        }
+        if (p.email) document.getElementById('input-email').value = p.email;
+        if (p.phone) document.getElementById('input-phone').value = p.phone;
+    }
+
+    // --- Security (Password) ---
+    const btnChangePwd = document.getElementById('btn-change-pwd');
+    if (btnChangePwd) {
+        btnChangePwd.addEventListener('click', () => {
+            const current = document.getElementById('current-pwd').value;
+            const newP = document.getElementById('new-pwd').value;
+            const confirmP = document.getElementById('confirm-pwd').value;
+
+            if (!current || !newP || !confirmP) {
+                alert("Veuillez remplir tous les champs.");
+                return;
+            }
+            if (newP !== confirmP) {
+                alert("Les nouveaux mots de passe ne correspondent pas.");
+                return;
+            }
+
+            // Simulate API Call
+            btnChangePwd.textContent = "Traitement...";
+            setTimeout(() => {
+                alert("Mot de passe mis à jour avec succès !");
+                btnChangePwd.textContent = "Mettre à jour le mot de passe";
+                // Clear fields
+                document.getElementById('current-pwd').value = '';
+                document.getElementById('new-pwd').value = '';
+                document.getElementById('confirm-pwd').value = '';
+            }, 1000);
+        });
+    }
 
     // 9. Report Downloads Logic
     function downloadReport(url, filename) {

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Espace Conducteur | AnalytixCare</title>
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --glass: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg-dark);
+            color: white;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .card {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        input {
+            width: 100%;
+            padding: 16px;
+            margin: 10px 0;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            color: white;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+
+        button {
+            width: 100%;
+            padding: 16px;
+            border-radius: 12px;
+            border: none;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            background: #3b82f6;
+            color: white;
+            transition: 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        .status-icon {
+            font-size: 4rem;
+            margin-bottom: 10px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- HEADER -->
+        <div style="text-align: center; margin-bottom: 30px; margin-top: 20px;">
+            <ion-icon name="speedometer" style="font-size: 3rem; color: #3b82f6;"></ion-icon>
+            <h1 style="margin: 5px 0; font-size: 1.5rem;">Espace Conducteur</h1>
+            <p style="color: #94a3b8; margin: 0;">Assistant de Sécurité IA</p>
+        </div>
+
+        <!-- LOGIN FORM -->
+        <div id="login-view" class="card">
+            <h3>Identification Véhicule</h3>
+            <p style="font-size: 0.9rem; color: #94a3b8;">Entrez l'ID de votre véhicule pour vérifier son état.</p>
+            <input type="text" id="vehicleInput" placeholder="Ex: V-1002" autocomplete="off">
+            <button onclick="checkVehicle()">Vérifier État</button>
+        </div>
+
+        <!-- STATUS VIEW -->
+        <div id="status-view" class="hidden">
+            <div id="status-card" class="card">
+                <div id="status-icon-container"></div>
+                <h2 id="status-title">Analyse en cours...</h2>
+                <div id="status-details"
+                    style="text-align: left; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; margin: 15px 0;">
+                    <!-- Filled by JS -->
+                </div>
+                <div style="font-weight: bold; margin-bottom: 15px;" id="action-text"></div>
+                <button onclick="resetView()" style="background: rgba(255,255,255,0.1);">Nouvelle Recherche</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        async function checkVehicle() {
+            const vid = document.getElementById('vehicleInput').value.trim();
+            if (!vid) return alert("Veuillez entrer un ID.");
+
+            const btn = document.querySelector('button');
+            const originalText = btn.textContent;
+            btn.textContent = "Analyse IA...";
+
+            try {
+                const res = await fetch(`/api/driver/alerts/${vid}`);
+                const data = await res.json();
+
+                showResult(data);
+            } catch (e) {
+                alert("Erreur de connexion serveur.");
+            } finally {
+                btn.textContent = originalText;
+            }
+        }
+
+        function showResult(data) {
+            document.getElementById('login-view').classList.add('hidden');
+            document.getElementById('status-view').classList.remove('hidden');
+
+            const card = document.getElementById('status-card');
+            const iconContainer = document.getElementById('status-icon-container');
+            const title = document.getElementById('status-title');
+            const details = document.getElementById('status-details');
+            const action = document.getElementById('action-text');
+
+            // Set Color Theme
+            card.style.borderColor = data.color;
+            card.style.boxShadow = `0 0 30px ${data.color}40`; // 40 = opacity
+
+            if (data.status === 'critical' || data.status === 'warning') {
+                iconContainer.innerHTML = `<ion-icon name="warning" class="status-icon" style="color: ${data.color};"></ion-icon>`;
+                title.textContent = data.alert_title;
+                title.style.color = data.color;
+
+                details.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <span style="color:#94a3b8">Véhicule:</span>
+                        <b>${data.vehicle_model || 'Inconnu'}</b>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <span style="color:#94a3b8">Panne Prédite:</span>
+                        <b style="color:${data.color}">${data.failure_type}</b>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <span style="color:#94a3b8">Délai estimé:</span>
+                        <b>${data.days_remaining} jours</b>
+                    </div>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="color:#94a3b8">Certitude IA:</span>
+                        <b>${data.probability}</b>
+                    </div>
+                `;
+            } else if (data.status === 'healthy') {
+                iconContainer.innerHTML = `<ion-icon name="checkmark-circle" class="status-icon" style="color: ${data.color};"></ion-icon>`;
+                title.textContent = "Véhicule Sain";
+                title.style.color = "#10b981";
+                details.innerHTML = `<p style="text-align:center; margin:0;">${data.message}</p>`;
+            } else {
+                iconContainer.innerHTML = `<ion-icon name="search" class="status-icon" style="color: gray;"></ion-icon>`;
+                title.textContent = "Introuvable";
+                title.style.color = "gray";
+                details.innerHTML = `<p style="text-align:center; margin:0;">${data.message}</p>`;
+            }
+
+            action.textContent = data.action;
+        }
+
+        function resetView() {
+            document.getElementById('status-view').classList.add('hidden');
+            document.getElementById('login-view').classList.remove('hidden');
+            document.getElementById('vehicleInput').value = '';
+        }
+    </script>
+</body>
+
+</html>

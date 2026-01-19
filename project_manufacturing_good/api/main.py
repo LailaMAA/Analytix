@@ -17,6 +17,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from api.structure_db import init_enterprise_db, SessionLocal, FactPrediction, DimRegion, DimVehicle, DimPart, FactMaintenanceLog, DimDealer, FactVehicleFailure, DimFailureType, FactInvestmentForecast, FactHRForecast, FactInventory, FactInventoryForecast, DimDate
 from inference.prediction_service import InferencePipeline
 from nlq_engine.sql_agent import query_enterprise_data
+from agents.driver_notification import DriverNotificationAgent # NEW IMPORTS
 
 # Global state
 pipeline = None
@@ -58,6 +59,21 @@ async def root():
 async def read_login():
     with open("api/static/login.html", "r", encoding="utf-8") as f:
         return f.read()
+
+# --- DRIVER PORTAL ROUTES ---
+@app.get("/driver", response_class=HTMLResponse)
+async def read_driver_portal():
+    with open("api/static/driver.html", "r", encoding="utf-8") as f:
+        return f.read()
+
+@app.get("/api/driver/alerts/{vehicle_id}")
+def get_driver_alerts(vehicle_id: str, db: Session = Depends(get_enterprise_db)):
+    """
+    Agent Endpoint: Checks if a specific vehicle has pending high-risk predictions.
+    Used by the mobile driver app.
+    """
+    agent = DriverNotificationAgent(db)
+    return agent.get_vehicle_status(vehicle_id)
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def read_dashboard():

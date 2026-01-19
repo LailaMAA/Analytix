@@ -20,10 +20,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 # from api.database import init_db, get_db, PredictionRecord # REMOVED
 from api.structure_db import init_enterprise_db, SessionLocal, FactPrediction, DimRegion, DimVehicle, DimPart, FactMaintenanceLog, DimDealer, FactVehicleFailure, DimFailureType, FactInvestmentForecast, FactHRForecast, FactInventory, FactInventoryForecast, DimDate, User, FactNotification
 from inference.prediction_service import InferencePipeline
-from nlq_engine.sql_agent import query_enterprise_data
+from query_engine.sql_agent import query_enterprise_data
 from agents.driver_notification import DriverNotificationAgent
 from agents.alert_scheduler import AlertScheduler
-from AgentAi.ai_agent import MaintenanceAgent # NEW IMPORTS
+from agent_ai.ai_agent import MaintenanceAgent # NEW IMPORTS
 
 # Configuration Sécurité
 SECRET_KEY = "analytix_care_secret_2026" # Change in production
@@ -51,10 +51,11 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 # Global state
 pipeline = None
+scheduler = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global pipeline
+    global pipeline, scheduler
     print(">> Demarrage de l'API (Lifespan)...")
     
     # 1. Initialisation du pipeline ML
@@ -92,7 +93,10 @@ async def lifespan(app: FastAPI):
         
     print("✅ API prête !")
     yield
-    print(">> Arrêt de l'API...")
+    print(">> Arrêt de l'API... (Nettoyage)")
+    if scheduler:
+        scheduler.running = False
+    print("✅ Serveur arrêté.")
 
 app = FastAPI(title="Manufacturing ML API", lifespan=lifespan)
 
@@ -637,35 +641,81 @@ async def predict_csv(
 
             if internal_vid:
                 # Define Mapping Dictionary (Failure -> {Defective, Impacted})
+                # Using a robust lookup with normalized keys
                 failure_mapping = {
-                    "Surchauffe moteur": {
+                    "surchauffe moteur": {
                         "defective": "Joint de culasse, Culasse, Thermostat",
                         "impacted": "Bloc-cylindres, Culasse, Pistons"
                     },
-                    "Défaut de lubrification": {
+                    "defaut de lubrification": {
                         "defective": "Pompe à huile, Filtre à huile, Joints",
                         "impacted": "Vilebrequin, Bielles, Pistons"
                     },
-                    "Défaut d'injection": {
+                    "défaut de lubrification": { # With accent
+                        "defective": "Pompe à huile, Filtre à huile, Joints",
+                        "impacted": "Vilebrequin, Bielles, Pistons"
+                    },
+                    "defaut d'injection": {
                         "defective": "Injecteurs, Pompe carburant, Capteurs pression",
                         "impacted": "Pistons, Soupapes, Culasse"
                     },
-                    "Défaut de refroidissement": {
+                    "défaut d'injection": { # With accent
+                        "defective": "Injecteurs, Pompe carburant, Capteurs pression",
+                        "impacted": "Pistons, Soupapes, Culasse"
+                    },
+                    "defaut de refroidissement": {
                         "defective": "Pompe à eau, Radiateur, Ventilateur",
                         "impacted": "Bloc-cylindres, Culasse"
                     },
-                    "Défaut électrique": {
+                    "défaut de refroidissement": { # With accent
+                        "defective": "Pompe à eau, Radiateur, Ventilateur",
+                        "impacted": "Bloc-cylindres, Culasse"
+                    },
+                    "defaut electrique": {
                         "defective": "Batterie, Alternateur, Capteurs, Faisceau",
                         "impacted": "Démarreur, Capteurs, Alternateur"
                     },
-                    "Usure mécanique": {
+                    "défaut électrique": { # With accent
+                        "defective": "Batterie, Alternateur, Capteurs, Faisceau",
+                        "impacted": "Démarreur, Capteurs, Alternateur"
+                    },
+                    "usure mecanique": {
                         "defective": "Segments, Soupapes, Courroie, Arbre à cames",
                         "impacted": "Pistons, Segments, Soupapes, Bielles"
+                    },
+                    "usure mécanique": { # With accent
+                        "defective": "Segments, Soupapes, Courroie, Arbre à cames",
+                        "impacted": "Pistons, Segments, Soupapes, Bielles"
+                    },
+                    "aucune panne": {
+                        "defective": "-",
+                        "impacted": "-"
                     }
                 }
 
-                pred_type = res_row["predicted_failure_type"]
-                mapping = failure_mapping.get(pred_type, {"defective": "Inconnu", "impacted": "Inconnu"})
+                # Improved lookup with normalization
+                def normalize_key(k):
+                    if not k: return ""
+                    # Remove accents and special chars for comparison
+                    import unicodedata
+                    k = str(k).lower().strip()
+                    k = "".join(c for c in unicodedata.normalize('NFD', k) if unicodedata.category(c) != 'Mn')
+                    return k.replace("'", " ").replace("-", " ").replace("  ", " ")
+
+                norm_pred_type = normalize_key(res_row.get("predicted_failure_type", "aucune panne"))
+                
+                # Update mapping keys to be normalized
+                normalized_mapping = {
+                    normalize_key("Surchauffe moteur"): failure_mapping["surchauffe moteur"],
+                    normalize_key("Defaut de lubrification"): failure_mapping["defaut de lubrification"],
+                    normalize_key("Defaut d'injection"): failure_mapping["defaut d'injection"],
+                    normalize_key("Defaut de refroidissement"): failure_mapping["defaut de refroidissement"],
+                    normalize_key("Defaut electrique"): failure_mapping["defaut electrique"],
+                    normalize_key("Usure mecanique"): failure_mapping["usure mecanique"],
+                    normalize_key("Aucune panne"): failure_mapping["aucune panne"]
+                }
+                
+                mapping = normalized_mapping.get(norm_pred_type, {"defective": "Inconnu", "impacted": "Inconnu"})
 
                 new_pred = FactPrediction(
                     vehicle_id=internal_vid,
@@ -696,7 +746,9 @@ async def predict_csv(
                 "vehicle_id": origin_vid,
                 "type_panne_predite": res_row["predicted_failure_type"],
                 "jours_avant_panne": int(res_row["predicted_days_before_failure"]),
-                "probabilite_panne": float(res_row["failure_probability"])
+                "probabilite_panne": float(res_row["failure_probability"]),
+                "defective_part": mapping["defective"],
+                "impacted_part": mapping["impacted"]
             })
         
         ent_db.commit()

@@ -1,6 +1,0 @@
-pandas
-sqlalchemy
-python-dotenv
-groq
-# openai (optional, kept for reference if needed)
-# google-genai (removed)

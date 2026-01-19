@@ -23,19 +23,18 @@ class AlertScheduler:
             except Exception as e:
                 print(f"Error in AlertScheduler: {e}")
             
-            # Sleep for 60 seconds
-            time.sleep(60)
+            # Sleep for 30 seconds
+            time.sleep(30)
 
     def check_for_alerts(self):
         db = SessionLocal()
         try:
             # 0. Check if table is empty
             if db.query(FactPrediction).count() == 0:
-                print(">> [AlertScheduler] Aucune prédiction en base. En attente de données...")
                 return
 
-            # Check predictions from last 24h
-            threshold_time = datetime.utcnow() - timedelta(hours=24)
+            # Check predictions from last hour
+            threshold_time = datetime.utcnow() - timedelta(hours=1)
             
             critical_preds = db.query(FactPrediction).filter(
                 FactPrediction.failure_probability > 0.8,
@@ -70,8 +69,12 @@ class AlertScheduler:
                         is_read=False
                     )
                     db.add(new_notif)
-                    print(f">> [AlertScheduler] Alerte générée pour {vid_str}")
+                    # Use a standard print for system log but avoid spamming
+                    print(f"[SYSTEM] AlertScheduler: Alerte generee pour {vid_str}")
             
             db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"[ERROR] AlertScheduler: {e}")
         finally:
             db.close()

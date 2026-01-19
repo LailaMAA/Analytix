@@ -24,6 +24,35 @@ document.addEventListener('DOMContentLoaded', async function () {
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.font.family = "'Outfit', sans-serif";
 
+    // Toast Container
+    const toastContainer = document.createElement('div');
+    toastContainer.className = 'toast-container';
+    document.body.appendChild(toastContainer);
+
+    function showToast(message, level = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${level.toLowerCase()}`;
+
+        let icon = 'information-circle-outline';
+        if (level === 'Critical') icon = 'alert-circle-outline';
+        if (level === 'Success') icon = 'checkmark-circle-outline';
+
+        toast.innerHTML = `
+            <ion-icon name="${icon}" style="font-size: 1.4rem; color: ${level === 'Critical' ? '#ef4444' : (level === 'Success' ? '#10b981' : '#3b82f6')};"></ion-icon>
+            <div style="flex: 1;">
+                <div style="font-weight: 700; font-size: 0.85rem; margin-bottom: 2px;">${level === 'Critical' ? 'Alerte IA' : 'Notification'}</div>
+                <div style="font-size: 0.75rem; color: #cbd5e1; line-height: 1.3;">${message}</div>
+            </div>
+        `;
+
+        toastContainer.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(100%)';
+            setTimeout(() => toast.remove(), 300);
+        }, 5000);
+    }
+
     // 1. Initialisation des KPIs
     function loadProKPIs() {
         // Core KPIs
@@ -573,7 +602,11 @@ document.addEventListener('DOMContentLoaded', async function () {
                     if (data.status === 'success') {
                         loadProKPIs();
                         loadRecentPredictions();
-                        // Add message to chat
+                        loadFullHistory();
+
+                        showToast(`Importation réussie : ${data.count} pannes détectées.`, 'Success');
+
+                        // Add message to chat for deep analysis
                         const msg = document.createElement('div');
                         msg.className = 'glass';
                         msg.style.padding = '1rem';
@@ -923,17 +956,32 @@ document.addEventListener('DOMContentLoaded', async function () {
             fetchAuth('/api/notifications')
                 .then(res => res.json())
                 .then(data => {
-                    renderNotifications(data);
+                    if (Array.isArray(data)) {
+                        renderNotifications(data);
+                    } else {
+                        console.warn("Notifications API returned non-array data:", data);
+                    }
                 })
                 .catch(err => console.error("Error checking notifications", err));
         }
 
         function renderNotifications(data) {
+            if (!Array.isArray(data)) return;
+
+            // Check for NEW notifications to show toast
+            const lastCount = parseInt(notifBadge.textContent || '0');
+            if (data.length > lastCount) {
+                // New alert!
+                const newOne = data[0];
+                showToast(newOne.message, newOne.level);
+            }
+
             // Update Badge
             if (data.length > 0) {
                 notifBadge.textContent = data.length;
                 notifBadge.classList.remove('hidden');
             } else {
+                notifBadge.textContent = '0';
                 notifBadge.classList.add('hidden');
             }
 
@@ -1036,25 +1084,40 @@ document.addEventListener('DOMContentLoaded', async function () {
             briefingModal.classList.add('hidden');
         });
 
+        // Close modal when clicking outside of its card
+        briefingModal.addEventListener('click', (e) => {
+            if (e.target === briefingModal) {
+                briefingModal.classList.add('hidden');
+            }
+        });
+
         // Print
         if (btnPrintBriefing) {
             btnPrintBriefing.addEventListener('click', () => {
                 const printWindow = window.open('', '_blank');
+                if (!printWindow) {
+                    alert("Le bloqueur de fenêtres empêche l'impression. Veuillez l'autoriser.");
+                    return;
+                }
                 printWindow.document.write(`
                     <html>
                     <head>
-                        <title>Rapport Quotidien IA</title>
+                        <title>Rapport Quotidien IA - AnalytixCare</title>
                         <style>
-                            body { font-family: sans-serif; padding: 2rem; line-height: 1.6; }
-                            h1, h2, h3 { color: #1e293b; }
-                            table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
-                            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
-                            th { background: #f1f5f9; }
-                            ul { margin-bottom: 1rem; }
+                            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 3rem; line-height: 1.6; color: #333; }
+                            h1 { color: #1e3a8a; border-bottom: 2px solid #1e3a8a; padding-bottom: 10px; }
+                            h2 { color: #1e40af; margin-top: 2rem; }
+                            table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
+                            th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
+                            th { background: #f8fafc; font-weight: 600; }
+                            blockquote { background: #eff6ff; border-left: 4px solid #3b82f6; padding: 1rem; margin: 1rem 0; font-style: italic; }
+                            .footer { margin-top: 3rem; font-size: 0.8rem; color: #64748b; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 1rem; }
                         </style>
                     </head>
                     <body>
+                        <div style="text-align: right; color: #64748b; font-size: 0.9rem;">${new Date().toLocaleDateString()}</div>
                         ${briefingContent.innerHTML}
+                        <div class="footer">Généré par AnalytixCare AI Agent - Rapport Confidentiel</div>
                         <script>window.print();</script>
                     </body>
                     </html>

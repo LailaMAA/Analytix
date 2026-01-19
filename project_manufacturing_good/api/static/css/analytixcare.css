@@ -1,0 +1,401 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+:root {
+    /* AnalytixCare Palette */
+    --bg-dark: #000000;
+    --navy-deep: #020617;
+    --glass-bg: rgba(15, 23, 42, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.1);
+
+    /* Neo-Brutalism / Premium Accents */
+    --gold: #fbbf24;
+    --gold-glow: rgba(251, 191, 36, 0.4);
+    --electric-blue: #3b82f6;
+    --vibrant-purple: #a855f7;
+    --emerald-green: #10b981;
+    --crimson-red: #ef4444;
+
+    /* Semantic Colors */
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+
+    /* Gradients */
+    --mesh-gradient: radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.2) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.15) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+}
+
+/* Light Mode Overrides */
+:root[data-theme="light"] {
+    --bg-dark: #f1f5f9;
+    --navy-deep: #ffffff;
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(0, 0, 0, 0.08);
+    /* Darker border for visibility on white */
+
+    --text-main: #0f172a;
+    /* Slate 900 */
+    --text-muted: #64748b;
+    /* Slate 500 */
+
+    /* Adjust gradients for light mode */
+    --mesh-gradient: radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.05) 0px, transparent 50%),
+        radial-gradient(at 50% 100%, rgba(16, 185, 129, 0.05) 0px, transparent 50%);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Outfit', sans-serif;
+    background-color: var(--bg-dark);
+    background-image: var(--mesh-gradient);
+    background-attachment: fixed;
+    color: var(--text-main);
+    min-height: 100vh;
+    display: flex;
+    overflow-x: hidden;
+}
+
+/* Glassmorphism Classes */
+.glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--glass-border);
+}
+
+.glass-card {
+    background: rgba(30, 41, 59, 0.4);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 24px;
+    padding: 1.5rem;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+:root[data-theme="light"] .glass-card {
+    background: rgba(255, 255, 255, 0.85);
+    /* Whiter cards */
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    /* Soft shadow */
+}
+
+.glass-card:hover {
+    transform: translateY(-8px) scale(1.01);
+    border-color: rgba(59, 130, 246, 0.3);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* Brand Sidebar */
+.sidebar {
+    width: 280px;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 100;
+    padding: 2.5rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--glass-border);
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 3.5rem;
+}
+
+.logo-icon {
+    width: 42px;
+    height: 42px;
+    background: linear-gradient(135deg, var(--gold) 0%, #d97706 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 20px var(--gold-glow);
+}
+
+.logo-text {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(to right, #fff, #94a3b8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.nav-menu {
+    list-style: none;
+    flex: 1;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+    border-radius: 16px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.nav-link:hover,
+.nav-link.active {
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+}
+
+.nav-link.active {
+    background: linear-gradient(to right, rgba(59, 130, 246, 0.1), transparent);
+    border-left: 3px solid var(--electric-blue);
+}
+
+.nav-link ion-icon {
+    font-size: 1.4rem;
+}
+
+/* Main Content Area */
+.main-viewport {
+    flex: 1;
+    margin-left: 280px;
+    padding: 2.5rem;
+    max-width: 1600px;
+}
+
+.top-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3rem;
+}
+
+.page-identity h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.page-identity p {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+/* Dashbaord Grid Pro */
+.grid-pro {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    grid-gap: 2rem;
+}
+
+/* KPI Pro Boxes */
+.kpi-box {
+    grid-column: span 3;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+}
+
+.kpi-box::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.03) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.kpi-label {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.kpi-main {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.kpi-val {
+    font-size: 2.8rem;
+    font-weight: 800;
+    letter-spacing: -1px;
+}
+
+.kpi-trend {
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+}
+
+.trend-up {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--crimson-red);
+}
+
+.trend-down {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--emerald-green);
+}
+
+/* Financial Intel Card */
+.finance-intel {
+    grid-column: span 7;
+    height: 480px;
+}
+
+.resource-opt {
+    grid-column: span 5;
+    height: 480px;
+}
+
+/* Table Design */
+.premium-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0 12px;
+}
+
+.premium-table th {
+    padding: 1rem;
+    text-align: left;
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+}
+
+.premium-table tr {
+    transition: transform 0.2s;
+}
+
+.premium-table td {
+    padding: 1.25rem 1rem;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.premium-table td:first-child {
+    border-top-left-radius: 16px;
+    border-bottom-left-radius: 16px;
+}
+
+.premium-table td:last-child {
+    border-top-right-radius: 16px;
+    border-bottom-right-radius: 16px;
+}
+
+/* Status Badges */
+.badge-pro {
+    padding: 0.5rem 1rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.badge-warning {
+    background: rgba(251, 191, 36, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.badge-danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.badge-success {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+/* Animations */
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.stagger-1 {
+    animation: slideUp 0.5s ease forwards;
+}
+
+.stagger-2 {
+    animation: slideUp 0.5s 0.1s ease forwards;
+    opacity: 0;
+}
+
+.stagger-3 {
+    animation: slideUp 0.5s 0.2s ease forwards;
+    opacity: 0;
+}
+
+.stagger-4 {
+    animation: slideUp 0.5s 0.3s ease forwards;
+    opacity: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+    .sidebar {
+        width: 80px;
+        padding: 2rem 0.5rem;
+    }
+
+    .logo-text,
+    .nav-link span {
+        display: none;
+    }
+
+    .main-viewport {
+        margin-left: 80px;
+    }
+
+    .kpi-box {
+        grid-column: span 6;
+    }
+
+    .finance-intel,
+    .resource-opt {
+        grid-column: span 12;
+    }
+}
+
+/* View Management */
+.hidden {
+    display: none !important;
+}
+
+.view-section {
+    animation: slideUp 0.6s ease-out;
+}

@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from api.structure_db import FactPrediction, DimVehicle
-from nlq_engine.sql_agent import get_llm
+from query_engine.sql_agent import get_llm
 from langchain_core.messages import SystemMessage, HumanMessage
 
 class DriverNotificationAgent:

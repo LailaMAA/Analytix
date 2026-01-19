@@ -83,14 +83,20 @@
             <p style="color: var(--text-muted);">Connectez-vous à AnalytixCare</p>
         </div>
 
+        <!-- Dummy inputs to trick browser autofill -->
+        <input type="text" style="display:none">
+        <input type="password" style="display:none">
+
         <div class="input-group">
             <ion-icon name="mail-outline"></ion-icon>
-            <input type="email" placeholder="Email professionnel" value="admin@analytix.com">
+            <input type="email" placeholder="Email professionnel" autocomplete="new-password" id="emailInput"
+                name="fake_email_to_prevent_autofill">
         </div>
 
         <div class="input-group">
             <ion-icon name="lock-closed-outline"></ion-icon>
-            <input type="password" placeholder="Mot de passe" value="password123">
+            <input type="password" placeholder="Mot de passe" autocomplete="new-password" id="pwdInput"
+                name="fake_password_to_prevent_autofill">
         </div>
 
         <button class="btn-login" onclick="handleLogin()">Se Connecter</button>
@@ -102,6 +108,21 @@
     </div>
 
     <script>
+        // Security: Aggressively clear inputs to prevent cached credential display
+        function clearInputs() {
+            const email = document.getElementById('emailInput');
+            const pwd = document.getElementById('pwdInput');
+            if (email) email.value = '';
+            if (pwd) pwd.value = '';
+        }
+
+        window.onload = function () {
+            clearInputs();
+            // Retry after small delay in case browser autofills after load
+            setTimeout(clearInputs, 100);
+            setTimeout(clearInputs, 500);
+        }
+
         function handleLogin() {
             // Simulation
             const btn = document.querySelector('.btn-login');

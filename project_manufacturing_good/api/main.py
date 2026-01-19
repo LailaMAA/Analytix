@@ -50,6 +50,15 @@ def get_enterprise_db():
     finally:
         db.close()
 
+@app.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/login")
+
+@app.get("/login", response_class=HTMLResponse)
+async def read_login():
+    with open("api/static/login.html", "r", encoding="utf-8") as f:
+        return f.read()
+
 @app.get("/dashboard", response_class=HTMLResponse)
 async def read_dashboard():
     with open("api/static/dashboard.html", "r", encoding="utf-8") as f:

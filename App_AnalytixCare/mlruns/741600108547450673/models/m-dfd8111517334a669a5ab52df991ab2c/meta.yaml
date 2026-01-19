@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/pc/Downloads/project_manufacturing/mlruns/741600108547450673/models/m-dfd8111517334a669a5ab52df991ab2c/artifacts
+creation_timestamp: 1768731948916
+experiment_id: '741600108547450673'
+last_updated_timestamp: 1768731964606
+model_id: m-dfd8111517334a669a5ab52df991ab2c
+model_type: null
+name: days_before_failure_model
+source_run_id: 2a96efa144694a909f51bd60fec8f492
+status: 2
+status_message: null

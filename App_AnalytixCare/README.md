@@ -132,6 +132,123 @@ graph TD
 
 ---
 
+### **`training/`** - Model Training Pipeline
+
+#### `train_failure_type.py` (101 lines)
+**Role**: Training script for the failure type classification model.
+
+**Process**:
+1. **Data Loading**: Reads preprocessed dataset from `data/processed/dataset_pretraite.csv`
+2. **Feature Selection**: Drops target variables (`failure_type`, `days_before_failure`) and identifiers (`vehicle_id`)
+3. **Train/Test Split**: 80/20 split with stratification to maintain class balance
+4. **Model Training**: LightGBM Classifier with optimized hyperparameters:
+   - `n_estimators`: 124
+   - `learning_rate`: 0.029
+   - `num_leaves`: 128
+   - `max_depth`: 7
+   - `subsample`: 0.878
+   - `colsample_bytree`: 0.692
+5. **Evaluation Metrics**:
+   - Accuracy
+   - Balanced Accuracy
+   - Precision (macro)
+   - Recall (macro)
+   - F1-score (macro)
+   - Log Loss
+   - Confusion Matrix
+   - Classification Report
+6. **Experiment Tracking**: Uses MLflow via `ExperimentTracker` to log parameters, metrics, and model
+7. **Model Export**: Saves trained model to `models/failure_type_model.joblib`
+
+**Output**: Classification model predicting 6 failure types (Overheating, Lubrication failure, Injection failure, Cooling failure, Electrical failure, Mechanical wear)
+
+---
+
+#### `train_days_before_failure.py` (97 lines)
+**Role**: Training script for the days-before-failure regression model.
+
+**Process**:
+1. **Data Loading**: Reads preprocessed dataset from `data/processed/dataset_pretraite.csv`
+2. **Feature Selection**: Drops target variable (`days_before_failure`)
+3. **Train/Test Split**: 80/20 split
+4. **Model Training**: LightGBM Regressor with optimized hyperparameters:
+   - `n_estimators`: 500
+   - `learning_rate`: 0.05
+   - `num_leaves`: 31
+   - `max_depth`: -1 (unlimited)
+   - `subsample`: 0.8
+   - `colsample_bytree`: 0.8
+5. **Evaluation Metrics**:
+   - MAE (Mean Absolute Error)
+   - RMSE (Root Mean Squared Error)
+   - R² Score
+   - Explained Variance
+6. **Experiment Tracking**: Uses MLflow to log training runs
+7. **Model Export**: Saves trained model to `models/days_before_failure_model.joblib`
+
+**Output**: Regression model predicting the number of days until engine failure
+
+**Performance Metrics** (on test set):
+- **MAE**: 14.62 days - Average prediction error is ~15 days
+- **RMSE**: 20.06 days - Penalizes larger errors more heavily
+- **R²**: 0.6458 - Model explains 64.58% of variance in failure timing
+- **Explained Variance**: 0.6460 - Strong predictive capability for maintenance scheduling
+
+---
+
+**Training Workflow**:
+```bash
+# 1. Preprocess raw data
+python preprocessing/preprocess.py
+
+# 2. Train failure type classifier
+python training/train_failure_type.py
+
+# 3. Train days-before-failure regressor
+python training/train_days_before_failure.py
+```
+
+**Dependencies**: Both scripts use `ml_logic.tracking.ExperimentTracker` (aliased from `discovery_engine.tracking`) for MLflow integration.
+
+---
+
+### Model Performance Summary
+
+#### Failure Type Classification Model
+**Overall Accuracy**: 91.60% (3,664 correct predictions out of 4,000 test samples)
+
+**Per-Class Performance**:
+| Failure Type | Precision | Recall | F1-Score | Support |
+|--------------|-----------|--------|----------|---------|
+| Overheating (0) | 0.80 | 0.82 | 0.81 | 574 |
+| Lubrication Failure (1) | 0.98 | 0.99 | 0.99 | 569 |
+| Injection Failure (2) | 0.99 | 0.95 | 0.97 | 568 |
+| Cooling Failure (3) | 0.96 | 0.98 | 0.97 | 560 |
+| Electrical Failure (4) | 0.82 | 0.75 | 0.78 | 587 |
+| Mechanical Wear (5) | 0.97 | 0.98 | 0.98 | 579 |
+| No Failure (6) | 0.89 | 0.94 | 0.91 | 563 |
+
+**Key Insights**:
+- **Best Performance**: Lubrication Failure (F1: 0.99) and Mechanical Wear (F1: 0.98) - Nearly perfect detection
+- **Challenging Class**: Electrical Failure (F1: 0.78) - Most confusion with Overheating (120 misclassifications)
+- **Balanced Accuracy**: 91.69% - Model performs consistently across all failure types
+- **Log Loss**: 0.1739 - High confidence in predictions with low uncertainty
+
+**Confusion Matrix Analysis**:
+- Main confusion: Overheating ↔ Electrical Failure (120 + 93 errors)
+- This is expected as both can manifest similar symptoms (temperature anomalies)
+- All other failure types are well-separated with minimal cross-confusion
+
+#### Days Before Failure Regression Model
+**Prediction Accuracy**: Average error of ±14.6 days on a typical failure timeline
+
+**Business Impact**:
+- **Maintenance Planning**: 2-week prediction window allows optimal resource allocation
+- **Cost Optimization**: Early warnings enable preventive maintenance vs. emergency repairs
+- **Fleet Management**: R² of 0.65 provides reliable risk stratification for vehicle prioritization
+
+---
+
 ### **`query_engine/`** - NLQ Engine (Natural Language Query)
 
 #### `sql_agent.py`

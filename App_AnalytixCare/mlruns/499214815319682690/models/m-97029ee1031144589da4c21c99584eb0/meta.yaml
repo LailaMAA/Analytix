@@ -1,0 +1,10 @@
+artifact_location: file:///C:/Users/pc/Downloads/project_manufacturing/mlruns/499214815319682690/models/m-97029ee1031144589da4c21c99584eb0/artifacts
+creation_timestamp: 1768735736670
+experiment_id: '499214815319682690'
+last_updated_timestamp: 1768735753859
+model_id: m-97029ee1031144589da4c21c99584eb0
+model_type: null
+name: failure_type_model
+source_run_id: 136f6c4738e54c6a9373376d0f082270
+status: 2
+status_message: null

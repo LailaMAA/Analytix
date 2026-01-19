@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/pc/Downloads/project_manufacturing/mlruns/499214815319682690/86c2320d62414873b809a2b5d80b44df/artifacts
+end_time: 1768733019845
+entry_point_name: ''
+experiment_id: '499214815319682690'
+lifecycle_stage: active
+run_id: 86c2320d62414873b809a2b5d80b44df
+run_name: polite-goat-316
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768732980869
+status: 3
+tags: []
+user_id: pc

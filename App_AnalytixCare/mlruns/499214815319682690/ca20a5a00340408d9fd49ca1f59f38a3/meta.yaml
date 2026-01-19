@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/pc/Downloads/project_manufacturing/mlruns/499214815319682690/ca20a5a00340408d9fd49ca1f59f38a3/artifacts
+end_time: 1768730216130
+entry_point_name: ''
+experiment_id: '499214815319682690'
+lifecycle_stage: active
+run_id: ca20a5a00340408d9fd49ca1f59f38a3
+run_name: intelligent-rook-981
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768730150542
+status: 3
+tags: []
+user_id: pc

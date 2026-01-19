@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/pc/Downloads/project_manufacturing/mlruns/741600108547450673/858abf8d80224212b758b6ddfc8955ba/artifacts
+end_time: 1768732489906
+entry_point_name: ''
+experiment_id: '741600108547450673'
+lifecycle_stage: active
+run_id: 858abf8d80224212b758b6ddfc8955ba
+run_name: handsome-horse-743
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768732472464
+status: 3
+tags: []
+user_id: pc

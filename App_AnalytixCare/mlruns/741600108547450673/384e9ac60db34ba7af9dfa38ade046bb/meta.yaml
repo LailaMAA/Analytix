@@ -1,0 +1,14 @@
+artifact_uri: file:///C:/Users/pc/Downloads/project_manufacturing/mlruns/741600108547450673/384e9ac60db34ba7af9dfa38ade046bb/artifacts
+end_time: 1768732380606
+entry_point_name: ''
+experiment_id: '741600108547450673'
+lifecycle_stage: active
+run_id: 384e9ac60db34ba7af9dfa38ade046bb
+run_name: secretive-ram-93
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1768732363285
+status: 3
+tags: []
+user_id: pc

@@ -5,7 +5,7 @@ from sklearn.preprocessing import LabelEncoder, MinMaxScaler
 from joblib import dump
 
 # Add project root to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', "Companyx_database.db")))
 
 from api.structure_db import (
     SessionLocal, FactTrainingData, engine
@@ -17,19 +17,19 @@ def preprocess_data():
     # ==========================================
     session = SessionLocal()
     try:
-        print("🔌 Tentative de connexion à la Base de Données (FactTrainingData)...")
+        print(" Tentative de connexion à la Base de Données (FactTrainingData)...")
         # On lit directement la table "Flat" demandée par l'utilisateur
         query = session.query(FactTrainingData).statement
         df = pd.read_sql(query, session.bind)
-        print(f"✅ Données chargées avec succès: {df.shape}")
+        print(f" Données chargées avec succès: {df.shape}")
     except Exception as e:
-        print(f"❌ Erreur lors du chargement : {e}")
+        print(f" Erreur lors du chargement : {e}")
         return
     finally:
         session.close()
 
     if df.empty:
-        print("⚠️ Aucune donnée trouvée dans FACT_TRAINING_DATA.")
+        print(" Aucune donnée trouvée dans FACT_TRAINING_DATA.")
         return
 
     # Drop Identifiers and non-feature columns

@@ -879,6 +879,8 @@ document.addEventListener('DOMContentLoaded', async function () {
                 }
 
                 data.forEach(p => {
+                    if (p.part_name === 'Inconnu') return; // Filter out unknown parts
+
                     const tr = document.createElement('tr');
                     let badgeClass = 'badge-success';
                     if (p.criticality === 'Élevée') badgeClass = 'badge-danger';
@@ -895,6 +897,171 @@ document.addEventListener('DOMContentLoaded', async function () {
                 });
             })
             .catch(err => console.error("Error loading parts forecast", err));
+    }
+
+    // 11. Automated Notifications (AI Agent)
+    const btnNotif = document.getElementById('btn-notifications');
+    const notifBadge = document.getElementById('notif-badge');
+    const notifDropdown = document.getElementById('notif-dropdown');
+    const notifList = document.getElementById('notif-list');
+
+    if (btnNotif && notifDropdown) {
+        // Toggle Dropdown
+        btnNotif.addEventListener('click', (e) => {
+            e.stopPropagation();
+            notifDropdown.classList.toggle('hidden');
+        });
+
+        // Close when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!btnNotif.contains(e.target) && !notifDropdown.contains(e.target)) {
+                notifDropdown.classList.add('hidden');
+            }
+        });
+
+        function checkNotifications() {
+            fetchAuth('/api/notifications')
+                .then(res => res.json())
+                .then(data => {
+                    renderNotifications(data);
+                })
+                .catch(err => console.error("Error checking notifications", err));
+        }
+
+        function renderNotifications(data) {
+            // Update Badge
+            if (data.length > 0) {
+                notifBadge.textContent = data.length;
+                notifBadge.classList.remove('hidden');
+            } else {
+                notifBadge.classList.add('hidden');
+            }
+
+            // Update List
+            if (data.length === 0) {
+                notifList.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">Aucune nouvelle notification</div>';
+                return;
+            }
+
+            notifList.innerHTML = '';
+            data.forEach(n => {
+                const item = document.createElement('div');
+                item.className = 'glass';
+                item.style.marginBottom = '8px';
+                item.style.padding = '12px';
+                item.style.borderRadius = '12px';
+                item.style.cursor = 'pointer';
+                item.style.borderLeft = n.level === 'Critical' ? '3px solid #ef4444' : '3px solid #3b82f6';
+
+                item.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                        <span style="font-weight: 600; font-size: 0.85rem; color: white;">${n.title}</span>
+                        <span style="font-size: 0.7rem; color: var(--text-muted);">${n.time}</span>
+                    </div>
+                    <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.4;">${n.message}</p>
+                `;
+
+                // Mark as read on click
+                item.addEventListener('click', () => {
+                    fetchAuth(`/api/notifications/${n.id}/read`, { method: 'PUT' })
+                        .then(() => {
+                            item.remove();
+                            // Update badge locally
+                            const count = parseInt(notifBadge.textContent || '0') - 1;
+                            if (count <= 0) {
+                                notifBadge.classList.add('hidden');
+                                notifBadge.textContent = '0';
+                                notifList.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">Aucune nouvelle notification</div>';
+                            } else {
+                                notifBadge.textContent = count;
+                            }
+                        });
+                });
+
+                notifList.appendChild(item);
+            });
+        }
+
+        // Initial Check & Polling
+        checkNotifications();
+        setInterval(checkNotifications, 30000); // Check every 30s
+    }
+
+    // 12. Daily AI Briefing Logic
+    const btnDaily = document.getElementById('btn-daily-briefing');
+    const briefingModal = document.getElementById('briefing-modal');
+    const btnCloseBriefing = document.getElementById('btn-close-briefing');
+    const briefingContent = document.getElementById('briefing-content');
+    const btnPrintBriefing = document.getElementById('btn-print-briefing');
+
+    if (btnDaily && briefingModal) {
+
+        btnDaily.addEventListener('click', () => {
+            // Open Modal
+            briefingModal.classList.remove('hidden');
+
+            // Show Loader
+            briefingContent.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">
+                    <div class="loader" style="margin-bottom: 1rem;"></div>
+                    <p>L'Agent IA analyse vos données et rédige le rapport...</p>
+                </div>
+            `;
+
+            // Fetch Report
+            fetchAuth('/api/reports/daily-briefing')
+                .then(res => res.json())
+                .then(data => {
+                    // Render Markdown with Marked.js
+                    if (window.marked) {
+                        briefingContent.innerHTML = window.marked.parse(data.report);
+                    } else {
+                        briefingContent.innerText = data.report; // Fallback
+                    }
+                })
+                .catch(err => {
+                    console.error("Error generating briefing", err);
+                    briefingContent.innerHTML = `
+                        <div style="text-align: center; color: #ef4444; margin-top: 2rem;">
+                            <h3>❌ Erreur</h3>
+                            <p>Impossible de joindre l'Agent IA.</p>
+                            <code style="background: rgba(0,0,0,0.3); padding: 4px; border-radius: 4px;">${err}</code>
+                        </div>
+                    `;
+                });
+        });
+
+        // Close Modal
+        btnCloseBriefing.addEventListener('click', () => {
+            briefingModal.classList.add('hidden');
+        });
+
+        // Print
+        if (btnPrintBriefing) {
+            btnPrintBriefing.addEventListener('click', () => {
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
+                    <html>
+                    <head>
+                        <title>Rapport Quotidien IA</title>
+                        <style>
+                            body { font-family: sans-serif; padding: 2rem; line-height: 1.6; }
+                            h1, h2, h3 { color: #1e293b; }
+                            table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+                            th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
+                            th { background: #f1f5f9; }
+                            ul { margin-bottom: 1rem; }
+                        </style>
+                    </head>
+                    <body>
+                        ${briefingContent.innerHTML}
+                        <script>window.print();</script>
+                    </body>
+                    </html>
+                `);
+                printWindow.document.close();
+            });
+        }
     }
 
 });

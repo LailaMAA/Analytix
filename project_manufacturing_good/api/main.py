@@ -18,10 +18,12 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # from api.database import init_db, get_db, PredictionRecord # REMOVED
-from api.structure_db import init_enterprise_db, SessionLocal, FactPrediction, DimRegion, DimVehicle, DimPart, FactMaintenanceLog, DimDealer, FactVehicleFailure, DimFailureType, FactInvestmentForecast, FactHRForecast, FactInventory, FactInventoryForecast, DimDate, User
+from api.structure_db import init_enterprise_db, SessionLocal, FactPrediction, DimRegion, DimVehicle, DimPart, FactMaintenanceLog, DimDealer, FactVehicleFailure, DimFailureType, FactInvestmentForecast, FactHRForecast, FactInventory, FactInventoryForecast, DimDate, User, FactNotification
 from inference.prediction_service import InferencePipeline
 from nlq_engine.sql_agent import query_enterprise_data
-from agents.driver_notification import DriverNotificationAgent # NEW IMPORTS
+from agents.driver_notification import DriverNotificationAgent
+from agents.alert_scheduler import AlertScheduler
+from AgentAi.ai_agent import MaintenanceAgent # NEW IMPORTS
 
 # Configuration Sécurité
 SECRET_KEY = "analytix_care_secret_2026" # Change in production
@@ -62,8 +64,13 @@ async def lifespan(app: FastAPI):
     # 2. Initialisation des bases de données
     print("  - Initialisation des bases de données...")
     init_enterprise_db()
+
+    # 3. Démarrage de l'Agent de Surveillance (Scheduler)
+    print("  - Démarrage de l'Agent de Surveillance...")
+    scheduler = AlertScheduler()
+    scheduler.start()
     
-    # 3. Création de l'utilisateur admin par défaut
+    # 4. Création de l'utilisateur admin par défaut
     db = SessionLocal()
     try:
         admin_email = "admin@analytixcare.com"
@@ -137,6 +144,29 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/api/notifications")
+def get_notifications(db: Session = Depends(get_enterprise_db)):
+    """
+    Fetch unread notifications.
+    """
+    notifs = db.query(FactNotification).filter(FactNotification.is_read == False).order_by(FactNotification.created_at.desc()).all()
+    return [{
+        "id": n.notification_id,
+        "title": n.title,
+        "message": n.message,
+        "level": n.level,
+        "time": n.created_at.strftime("%H:%M"),
+        "date": n.created_at.strftime("%Y-%m-%d")
+    } for n in notifs]
+
+@app.put("/api/notifications/{notif_id}/read")
+def mark_notification_read(notif_id: int, db: Session = Depends(get_enterprise_db)):
+    n = db.query(FactNotification).filter(FactNotification.notification_id == notif_id).first()
+    if n:
+        n.is_read = True
+        db.commit()
+    return {"status": "success"}
 
 @app.get("/api/auth/me")
 async def read_users_me(current_user: User = Depends(get_current_user)):
@@ -581,25 +611,96 @@ async def predict_csv(
              raise HTTPException(status_code=503, detail="Modèle non chargé")
         results = pipeline.predict(df)
 
+        # Prepare for DB Insertion
+        
+        # 1. Get all relevant vehicle IDs to map string ID -> Internal ID
+        # We assume DimVehicle is populated. If not, we might need to handle unknown vehicles.
+        
         records_json = []
+        
         for i in range(len(df)):
             row_orig = df.iloc[i]
             res_row = results.iloc[i]
             
             origin_vid = str(row_orig.get("vehicle_id", ""))
             
-        for i in range(len(results)):
-            res_row = results.iloc[i]
+            # Find Vehicle in DB
+            vehicle_obj = ent_db.query(DimVehicle).filter(DimVehicle.original_vehicle_id == origin_vid).first()
             
+            internal_vid = vehicle_obj.vehicle_id if vehicle_obj else None
+            
+            if not internal_vid:
+                # Optional: Auto-create vehicle if missing? For now, we skip or log.
+                # Let's simple skip saving if vehicle unknown, but still return in JSON?
+                # Or better: Create a dummy vehicle?
+                pass
+
+            if internal_vid:
+                # Define Mapping Dictionary (Failure -> {Defective, Impacted})
+                failure_mapping = {
+                    "Surchauffe moteur": {
+                        "defective": "Joint de culasse, Culasse, Thermostat",
+                        "impacted": "Bloc-cylindres, Culasse, Pistons"
+                    },
+                    "Défaut de lubrification": {
+                        "defective": "Pompe à huile, Filtre à huile, Joints",
+                        "impacted": "Vilebrequin, Bielles, Pistons"
+                    },
+                    "Défaut d'injection": {
+                        "defective": "Injecteurs, Pompe carburant, Capteurs pression",
+                        "impacted": "Pistons, Soupapes, Culasse"
+                    },
+                    "Défaut de refroidissement": {
+                        "defective": "Pompe à eau, Radiateur, Ventilateur",
+                        "impacted": "Bloc-cylindres, Culasse"
+                    },
+                    "Défaut électrique": {
+                        "defective": "Batterie, Alternateur, Capteurs, Faisceau",
+                        "impacted": "Démarreur, Capteurs, Alternateur"
+                    },
+                    "Usure mécanique": {
+                        "defective": "Segments, Soupapes, Courroie, Arbre à cames",
+                        "impacted": "Pistons, Segments, Soupapes, Bielles"
+                    }
+                }
+
+                pred_type = res_row["predicted_failure_type"]
+                mapping = failure_mapping.get(pred_type, {"defective": "Inconnu", "impacted": "Inconnu"})
+
+                new_pred = FactPrediction(
+                    vehicle_id=internal_vid,
+                    prediction_date=datetime.utcnow(),
+                    
+                    # Mapping Flexible (English OR French)
+                    engine_model=str(row_orig.get("engine_model", row_orig.get("modele_moteur", ""))),
+                    vehicle_age=float(row_orig.get("vehicle_age", row_orig.get("age_vehicule", 0))),
+                    total_mileage=float(row_orig.get("total_mileage", row_orig.get("kilometrage_total", 0))),
+                    warranty=str(row_orig.get("warranty", row_orig.get("garantie", "Non"))),
+                    
+                    # Store Failure Infos
+                    predicted_failure_type=pred_type,
+                    failure_probability=float(res_row["failure_probability"]),
+                    predicted_days_before_failure=int(res_row["predicted_days_before_failure"]),
+                    
+                    # Context
+                    region=str(row_orig.get("region", row_orig.get("region", "Inconnu"))),
+                    city=str(row_orig.get("city", row_orig.get("ville", "-"))),
+                    
+                    # Mapped Parts
+                    defective_part=mapping["defective"],
+                    impacted_part=mapping["impacted"]
+                )
+                ent_db.add(new_pred)
+
             records_json.append({
-                "vehicle_id": str(res_row["vehicle_id"]),
+                "vehicle_id": origin_vid,
                 "type_panne_predite": res_row["predicted_failure_type"],
                 "jours_avant_panne": int(res_row["predicted_days_before_failure"]),
                 "probabilite_panne": float(res_row["failure_probability"])
             })
         
-        # ent_db.commit() # Redundant
-        print(f" Sync réussi : {len(records_json)} véhicules traités.")
+        ent_db.commit()
+        print(f" Sync réussi : {len(records_json)} véhicules traités et sauvegardés.")
         return {"status": "success", "count": len(records_json), "predictions": records_json}
 
     except Exception as e:
@@ -738,6 +839,31 @@ def export_weekly_report(db: Session = Depends(get_enterprise_db)):
     except Exception as e:
         print(f"Error Weekly Report: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/reports/daily-briefing")
+def get_daily_briefing(db: Session = Depends(get_enterprise_db)):
+    """
+    Generates an autonomous daily briefing using MaintenanceAgent.
+    """
+    try:
+        # Fetch recent predictions (last 30 days) to give context to the agent
+        # We fetch ALL columns to create a proper DataFrame
+        query = db.query(FactPrediction).statement
+        df = pd.read_sql(query, db.bind)
+        
+        if df.empty:
+            return {"report": "## ⚠️ Données insuffisantes\n\nAucune donnée de prédiction trouvée pour générer un rapport."}
+
+        # Initialize Agent
+        agent = MaintenanceAgent(df)
+        
+        # Generate Report
+        report_md = agent.generate_daily_briefing()
+        
+        return {"report": report_md}
+    except Exception as e:
+        print(f"Error Generating Briefing: {e}")
+        return {"report": f"## ❌ Erreur Système\n\nImpossible de générer le rapport : {str(e)}"}
 
 @app.get("/api/reports/audit")
 def export_audit_report(db: Session = Depends(get_enterprise_db)):

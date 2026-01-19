@@ -15,6 +15,7 @@
     <!-- Charting Engines -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
     <!-- Pro Max Styles -->
     <link rel="stylesheet" href="/static/css/pro_max.css">
@@ -59,7 +60,7 @@
             <li>
                 <a href="#" class="nav-link" data-view="view-parts">
                     <ion-icon name="cube-outline"></ion-icon>
-                    <span>Gestion des pièces</span>
+                    <span>Allocation des pièces</span>
                 </a>
             </li>
             <li>
@@ -94,11 +95,41 @@
                 <p id="currentDate">--</p>
             </div>
 
-            <div style="display: flex; gap: 1rem;">
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <!-- Notification Bell -->
+                <div style="position: relative;">
+                    <button id="btn-notifications" class="glass"
+                        style="padding: 0; border-radius: 50%; border: 1px solid var(--glass-border); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 42px; height: 42px;">
+                        <ion-icon name="notifications-outline" style="font-size: 1.2rem;"></ion-icon>
+                    </button>
+                    <span id="notif-badge" class="hidden"
+                        style="position: absolute; top: -2px; right: -2px; background: #ef4444; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; font-weight: 700;">0</span>
+
+                    <!-- Notification Dropdown -->
+                    <div id="notif-dropdown" class="glass hidden"
+                        style="position: absolute; right: 0; top: 120%; width: 340px; max-height: 400px; overflow-y: auto; border-radius: 16px; border: 1px solid var(--glass-border); box-shadow: 0 10px 40px rgba(0,0,0,0.5); z-index: 2000;">
+                        <div
+                            style="padding: 1rem; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center;">
+                            <h4 style="font-size: 0.9rem; color: white; font-weight: 600;">Centre de Notifications</h4>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">IA Agent</span>
+                        </div>
+                        <div id="notif-list" style="padding: 0;">
+                            <!-- Items will be injected here -->
+                            <div
+                                style="padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                                Aucune nouvelle notification
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <button id="btn-import-csv" class="glass"
                     style="padding: 0.8rem 1.5rem; border-radius: 14px; border: 1px solid var(--glass-border); color: white; cursor: pointer; display: flex; align-items: center; gap: 8px;">
                     <ion-icon name="cloud-upload-outline" style="color: var(--electric-blue);"></ion-icon> Importer
                     Données
+                </button>
+                <button id="btn-daily-briefing" class="glass"
+                    style="padding: 0.8rem 1.5rem; border-radius: 14px; border: 1px solid var(--electric-blue); background: rgba(59, 130, 246, 0.1); color: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    <ion-icon name="sparkles-outline"></ion-icon> Briefing IA
                 </button>
                 <button id="btn-export-report"
                     style="padding: 0.8rem 1.5rem; border-radius: 14px; border: none; background: white; color: black; font-weight: 600; cursor: pointer;">
@@ -594,6 +625,49 @@
     </div>
 
     <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+    <!-- Briefing Modal -->
+    <div id="briefing-modal" class="hidden"
+        style="position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 9999;">
+        <div class="glass"
+            style="width: 800px; max-width: 90%; height: 85vh; border-radius: 24px; padding: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--glass-border); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+
+            <!-- Header -->
+            <div
+                style="padding: 1.5rem; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02);">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="background: var(--electric-blue); padding: 8px; border-radius: 12px; display: flex;">
+                        <ion-icon name="sparkles" style="color: white; font-size: 1.2rem;"></ion-icon>
+                    </div>
+                    <h3 style="margin: 0; font-size: 1.2rem; font-weight: 600;">Briefing Quotidien Autonome</h3>
+                </div>
+                <button id="btn-close-briefing"
+                    style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.5rem;">
+                    <ion-icon name="close-circle-outline"></ion-icon>
+                </button>
+            </div>
+
+            <!-- Content -->
+            <div id="briefing-content"
+                style="flex: 1; padding: 2rem; overflow-y: auto; font-family: 'Inter', sans-serif; line-height: 1.6; color: #e2e8f0;">
+                <!-- Markdown will be rendered here -->
+                <div
+                    style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);">
+                    <div class="loader" style="margin-bottom: 1rem;"></div>
+                    <p>L'Agent IA analyse vos données...</p>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div
+                style="padding: 1rem; border-top: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); text-align: right;">
+                <button id="btn-print-briefing" class="glass"
+                    style="padding: 0.6rem 1.2rem; border-radius: 8px; font-size: 0.9rem; cursor: pointer;">
+                    <ion-icon name="print-outline" style="margin-right: 6px;"></ion-icon> Imprimer / PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/dashboard.js"></script>
     <script>
         // Inline script to handle basic toggle before main script loads if needed

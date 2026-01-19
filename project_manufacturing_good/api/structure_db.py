@@ -47,6 +47,17 @@ class DimCustomer(Base):
     
     vehicles = relationship("DimVehicle", back_populates="customer")
 
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True)
+    full_name = Column(String)
+    role = Column(String)
+    phone = Column(String)
+    hashed_password = Column(String)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 class DimDealer(Base):
     __tablename__ = "DIM_DEALER"
     dealer_id = Column(Integer, primary_key=True, index=True)

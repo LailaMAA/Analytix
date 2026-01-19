@@ -132,13 +132,47 @@
             setTimeout(clearInputs, 500);
         }
 
-        function handleLogin() {
-            // Simulation
+        async function handleLogin() {
+            const email = document.getElementById('emailInput').value;
+            const pwd = document.getElementById('pwdInput').value;
+
+            if (!email || !pwd) {
+                alert("Veuillez remplir tous les champs.");
+                return;
+            }
+
             const btn = document.querySelector('.btn-login');
+            const originalText = btn.textContent;
             btn.textContent = 'Connexion...';
-            setTimeout(() => {
-                window.location.href = '/dashboard';
-            }, 800);
+            btn.disabled = true;
+
+            try {
+                const formData = new URLSearchParams();
+                formData.append('username', email); // FastAPI OAuth2 use 'username' field
+                formData.append('password', pwd);
+
+                const response = await fetch('/api/auth/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('access_token', data.access_token);
+                    window.location.href = '/dashboard';
+                } else {
+                    const err = await response.json();
+                    alert(err.detail || "Identifiants invalides.");
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                console.error("Login error:", error);
+                alert("Erreur de connexion au serveur.");
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
         }
     </script>
 </body>

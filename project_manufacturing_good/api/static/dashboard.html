@@ -41,19 +41,25 @@
             <li>
                 <a href="#" class="nav-link" data-view="view-predictions">
                     <ion-icon name="pulse-outline"></ion-icon>
-                    <span>Intelligence</span>
+                    <span>Prédictions</span>
                 </a>
             </li>
             <li>
                 <a href="#" class="nav-link" data-view="view-rh">
                     <ion-icon name="people-outline"></ion-icon>
-                    <span>Gestion RH</span>
+                    <span>Allocation technicien</span>
                 </a>
             </li>
             <li>
                 <a href="#" class="nav-link" data-view="view-reports">
                     <ion-icon name="document-text-outline"></ion-icon>
                     <span>Rapports</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" class="nav-link" data-view="view-parts">
+                    <ion-icon name="cube-outline"></ion-icon>
+                    <span>Gestion des pièces</span>
                 </a>
             </li>
             <li>
@@ -197,19 +203,108 @@
         <!-- PREDICTIONS VIEW (Hidden) -->
         <section id="view-predictions" class="view-section hidden">
             <div class="glass-card">
-                <h3 style="margin-bottom: 2rem;">Historique d'Intelligence Artificielle</h3>
-                <div style="overflow-x: auto;">
-                    <table class="premium-table" id="allPredictionsTable">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3>Rapports de diagnostic intelligent</h3>
+                </div>
+
+                <div
+                    style="display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-bottom: 1rem;">
+                    <!-- Main Filter (Search) -->
+                    <div style="position: relative;">
+                        <ion-icon name="search-outline"
+                            style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;"></ion-icon>
+                        <input type="text" id="prediction-main-filter" placeholder="Rechercher (Véhicule, Panne...)"
+                            class="glass"
+                            style="padding: 0.5rem 1rem 0.5rem 2.2rem; border-radius: 10px; border: 1px solid var(--glass-border); color: white; background: rgba(255,255,255,0.03); width: 240px; font-size: 0.9rem; transition: all 0.3s ease;">
+                    </div>
+
+                    <!-- Column Visibility Dropdown -->
+                    <div class="dropdown" style="position: relative;">
+                        <button id="btn-toggle-cols" class="glass"
+                            style="padding: 0.5rem 1rem; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 8px; border: 1px solid var(--glass-border); color: white;">
+                            <ion-icon name="eye-outline"></ion-icon> Filtrer Colonnes
+                        </button>
+                        <div id="col-dropdown-content" class="glass hidden"
+                            style="position: absolute; right: 0; top: 110%; z-index: 1001; min-width: 650px; padding: 1.5rem; border-radius: 12px; backdrop-filter: blur(40px); border: 1px solid var(--glass-border); box-shadow: 0 10px 40px rgba(0,0,0,0.6);">
+                            <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem;">
+                                    <input type="checkbox" checked data-col="1"> Date
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem;">
+                                    <input type="checkbox" checked data-col="2"> Vehicle ID
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem;">
+                                    <input type="checkbox" checked data-col="3"> Modèle
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem;">
+                                    <input type="checkbox" checked data-col="4"> Age Véhicule
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem;">
+                                    <input type="checkbox" checked data-col="5"> Kilométrage
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem;">
+                                    <input type="checkbox" checked data-col="6"> Garantie
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem;">
+                                    <input type="checkbox" data-col="7"> Mise en Service
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem;">
+                                    <input type="checkbox" checked data-col="8"> Région
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem;">
+                                    <input type="checkbox" checked data-col="9"> Ville
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem;">
+                                    <input type="checkbox" checked data-col="10"> Pièce Défect.
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem;">
+                                    <input type="checkbox" checked data-col="11"> Pièce Impact.
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem;">
+                                    <input type="checkbox" checked data-col="12"> Type Panne
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem;">
+                                    <input type="checkbox" checked data-col="13"> Probabilité
+                                </label>
+                                <label
+                                    style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem;">
+                                    <input type="checkbox" checked data-col="14"> Jours Restants
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="overflow-x: auto; border-radius: 12px; border: 1px solid var(--glass-border);">
+                    <table class="premium-table" id="allPredictionsTable" style="min-width: 1800px; width: 100%;">
                         <thead>
                             <tr>
-                                <th>Date</th>
-                                <th>Vehicle ID</th>
-                                <th>Modèle</th>
-                                <th>Région</th>
-                                <th>Panne</th>
-                                <th>Jours Restants</th>
-                                <th>Garantie</th>
-                                <th>Impact</th>
+                                <th style="min-width: 120px;">Date</th>
+                                <th style="min-width: 130px;">Vehicle ID</th>
+                                <th style="min-width: 100px;">Modèle</th>
+                                <th style="min-width: 120px;">Age Véhicule</th>
+                                <th style="min-width: 120px;">Kilométrage</th>
+                                <th style="min-width: 100px;">Garantie</th>
+                                <th style="min-width: 140px;">Mise en Service</th>
+                                <th style="min-width: 120px;">Région</th>
+                                <th style="min-width: 120px;">Ville</th>
+                                <th style="min-width: 200px;">Pièce Défect.</th>
+                                <th style="min-width: 200px;">Pièce Impact.</th>
+                                <th style="min-width: 150px;">Type Panne</th>
+                                <th style="min-width: 110px;">Probabilité</th>
+                                <th style="min-width: 130px;">Jours Restants</th>
                             </tr>
                         </thead>
                         <tbody id="allPredictionsBody">
@@ -217,6 +312,7 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
             </div>
         </section>
 
@@ -250,7 +346,7 @@
             <!-- RH Chart -->
             <div class="glass-card chart-container" style="min-height: 450px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                    <h3>Répartition Régionale : Effectif vs Besoin</h3>
+                    <h3>Expension prédictive : Effectif vs Besoin</h3>
                     <ion-icon name="map" style="color: var(--electric-blue); font-size: 1.5rem;"></ion-icon>
                 </div>
                 <div style="height: 350px; width: 100%;">
@@ -285,6 +381,53 @@
                     <button id="btn-monthly-audit" class="glass"
                         style="width: 100%; padding: 1rem; border-radius: 12px; color: white; cursor: pointer; border: 1px solid var(--glass-border);">Télécharger
                         Audit Mensuel</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: PIECES / PARTS MANAGEMENT (New) -->
+        <section id="view-parts" class="view-section hidden">
+            <div class="grid-pro">
+                <!-- Parts KPIs -->
+                <div class="glass-card kpi-box stagger-1">
+                    <span class="kpi-label">Pièces Requises (30j)</span>
+                    <div class="kpi-main">
+                        <span class="kpi-val" id="parts-total-needed">--</span>
+                        <ion-icon name="construct" style="color: var(--vibrant-purple); font-size: 1.5rem;"></ion-icon>
+                    </div>
+                </div>
+                <div class="glass-card kpi-box stagger-2">
+                    <span class="kpi-label">Criticité Stock</span>
+                    <div class="kpi-main">
+                        <span class="kpi-val" id="parts-critical-status" style="font-size: 1.5rem;">Optimisé</span>
+                        <ion-icon name="shield-checkmark"
+                            style="color: var(--emerald-green); font-size: 1.5rem;"></ion-icon>
+                    </div>
+                </div>
+
+                <!-- Parts Forecast Table -->
+                <div class="glass-card" style="grid-column: span 12; margin-top: 1rem;">
+                    <h3 style="margin-bottom: 2rem;">Besoins Prévisionnels en Pièces détachées</h3>
+                    <div style="overflow-x: auto;">
+                        <table class="premium-table" id="partsForecastTable">
+                            <thead>
+                                <tr>
+                                    <th>Nom de la Pièce</th>
+                                    <th>Quantité Totale</th>
+                                    <th>Échéance Estimée</th>
+                                    <th>Jours Restants</th>
+                                    <th>Niveau d'Urgence</th>
+                                </tr>
+                            </thead>
+                            <tbody id="partsForecastBody">
+                                <!-- Populated by JS -->
+                                <tr>
+                                    <td colspan="5" style="text-align: center; padding: 2rem;">Chargement des
+                                        prévisions...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </section>

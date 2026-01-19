@@ -1,4 +1,24 @@
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
+
+    // --- AUTH CHECK ---
+    const token = localStorage.getItem('access_token');
+    if (!token && !window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+        return;
+    }
+
+    // Helper for fetch with Auth
+    async function fetchAuth(url, options = {}) {
+        const headers = options.headers || {};
+        headers['Authorization'] = `Bearer ${token}`;
+
+        const res = await fetch(url, { ...options, headers });
+        if (res.status === 401) {
+            localStorage.removeItem('access_token');
+            window.location.href = '/login';
+        }
+        return res;
+    }
 
     // 0. System Defaults
     Chart.defaults.color = '#94a3b8';
@@ -7,7 +27,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // 1. Initialisation des KPIs
     function loadProKPIs() {
         // Core KPIs
-        fetch('/api/kpi/stats')
+        fetchAuth('/api/kpi/stats')
             .then(res => res.json())
             .then(data => {
                 const critEl = document.getElementById('kpi-critical-value');
@@ -18,17 +38,27 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
         // Financial KPIs
-        fetch('/api/kpi/financial')
+        fetchAuth('/api/kpi/financial')
             .then(res => res.json())
             .then(data => {
-                const roiEl = document.getElementById('kpi-roi-value');
-                if (roiEl) roiEl.textContent = data.avg_roi + '%';
+                // Fetch HR and Stock for integrated calculation
+                Promise.all([
+                    fetchAuth('/api/kpi/resources').then(r => r.json()),
+                    fetchAuth('/api/kpi/inventory').then(r => r.json())
+                ]).then(([hrData, invData]) => {
+                    const roiEl = document.getElementById('kpi-roi-value');
+                    if (roiEl) {
+                        const integratedROI = calculateIntegratedROI(data.avg_roi, hrData.availability_rate, invData.supply_chain_health);
+                        roiEl.textContent = integratedROI + '%';
+                    }
+                });
+
                 // Trigger financial chart with real data
                 renderFinancialIntelligence(data);
             });
 
         // HR KPIs
-        fetch('/api/kpi/resources')
+        fetchAuth('/api/kpi/resources')
             .then(res => res.json())
             .then(data => {
                 const hrEl = document.getElementById('kpi-hr-value');
@@ -102,7 +132,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function loadRegionChart() {
         const ctxRegion = document.getElementById('regionChart').getContext('2d');
-        fetch('/api/kpi/costs-by-region')
+        fetchAuth('/api/kpi/costs-by-region')
             .then(res => res.json())
             .then(data => {
                 const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--electric-blue').trim();
@@ -152,6 +182,16 @@ document.addEventListener('DOMContentLoaded', function () {
         if (regionChartInstance) {
             regionChartInstance.data.datasets[0].backgroundColor = newColor;
             regionChartInstance.data.datasets[0].borderColor = newColor;
+
+            // Update axis colors for visibility
+            const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+            const tickColor = isLight ? '#64748b' : '#94a3b8';
+            const gridColor = isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)';
+
+            regionChartInstance.options.scales.x.ticks.color = tickColor;
+            regionChartInstance.options.scales.y.ticks.color = tickColor;
+            regionChartInstance.options.scales.y.grid.color = gridColor;
+
             regionChartInstance.update();
         }
 
@@ -183,9 +223,95 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    // --- Theme Toggle Logic ---
+    const toggleCtx = document.getElementById('toggle-darkmode');
+
+    // 1. Check Saved Theme
+    const currentTheme = localStorage.getItem('theme') || 'dark'; // Default dark
+    if (currentTheme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+        if (toggleCtx) toggleCtx.checked = false; // "Unchecked" = Light Mode
+    } else {
+        document.documentElement.removeAttribute('data-theme');
+        if (toggleCtx) toggleCtx.checked = true; // "Checked" = Dark Mode
+    }
+
+    // 2. Event Listener
+    if (toggleCtx) {
+        toggleCtx.addEventListener('change', function () {
+            if (this.checked) {
+                // Swith to Dark
+                document.documentElement.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                // Switch to Light
+                document.documentElement.setAttribute('data-theme', 'light');
+                localStorage.setItem('theme', 'light');
+            }
+        });
+    }
+
+    // --- Column Visibility Logic ---
+    const btnToggleCols = document.getElementById('btn-toggle-cols');
+    const colDropdown = document.getElementById('col-dropdown-content');
+
+    if (btnToggleCols && colDropdown) {
+        btnToggleCols.addEventListener('click', (e) => {
+            e.stopPropagation();
+            colDropdown.classList.toggle('hidden');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!colDropdown.contains(e.target) && e.target !== btnToggleCols) {
+                colDropdown.classList.add('hidden');
+            }
+        });
+
+        const colCheckboxes = colDropdown.querySelectorAll('input[type="checkbox"]');
+        colCheckboxes.forEach(cb => {
+            cb.addEventListener('change', () => {
+                const colIdx = parseInt(cb.getAttribute('data-col'));
+                const table = document.getElementById('allPredictionsTable');
+                if (!table) return;
+
+                // Toggle header
+                const th = table.querySelectorAll('thead th')[colIdx - 1];
+                if (th) th.style.display = cb.checked ? '' : 'none';
+
+                // Toggle body cells
+                const rows = table.querySelectorAll('tbody tr');
+                rows.forEach(tr => {
+                    const td = tr.querySelectorAll('td')[colIdx - 1];
+                    if (td) td.style.display = cb.checked ? '' : 'none';
+                });
+            });
+        });
+    }
+
+    // --- Main Filter Logic (Search) ---
+    const searchInput = document.getElementById('prediction-main-filter');
+    if (searchInput) {
+        searchInput.addEventListener('keyup', applySearchFilter);
+    }
+
+    // --- Integrated ROI Logic ---
+    function calculateIntegratedROI(baseROI, hrAvailability, stockHealth) {
+        // Simple logic: HR efficiency and Stock availability boost or penalize ROI
+        // Factor 1: HR. If availability < 70%, penalize ROI by 10%
+        let factorHR = 1.0;
+        if (hrAvailability < 70) factorHR = 0.9;
+        else if (hrAvailability > 90) factorHR = 1.05;
+
+        // Factor 2: Stock. If stock health < 80%, penalize ROI by 5%
+        let factorStock = 1.0;
+        if (stockHealth < 80) factorStock = 0.95;
+
+        return (baseROI * factorHR * factorStock).toFixed(1);
+    }
+
     // 4. Live Predictions Table
     function loadRecentPredictions() {
-        fetch('/predictions?limit=6')
+        fetchAuth('/predictions?limit=6')
             .then(res => res.json())
             .then(data => {
                 const tbody = document.querySelector('#predictionsTable tbody');
@@ -257,8 +383,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 loadFullHistory();
             }
             if (view === 'view-rh') {
-                pageTitle.textContent = "Gestion des Ressources Humaines";
+                pageTitle.textContent = "Croissance du site";
                 loadHRData();
+            }
+            if (view === 'view-parts') {
+                pageTitle.textContent = "Gestion des Pièces de Rechange";
+                loadPartsForecast();
             }
         });
     });
@@ -267,32 +397,88 @@ document.addEventListener('DOMContentLoaded', function () {
         const tbody = document.getElementById('allPredictionsBody');
         if (!tbody) return;
 
-        fetch('/predictions?limit=50')
+        fetchAuth('/predictions?limit=50')
             .then(res => res.json())
             .then(data => {
                 tbody.innerHTML = '';
                 data.forEach(p => {
                     const tr = document.createElement('tr');
+                    const prob = p.failure_probability * 100;
+                    const isCritical = prob > 80;
+
+                    if (isCritical) {
+                        tr.style.backgroundColor = 'rgba(239, 68, 68, 0.05)';
+                        tr.style.borderLeft = '3px solid #ef4444';
+                    }
+
                     tr.innerHTML = `
-                        <td>${new Date(p.prediction_date).toLocaleDateString()}</td>
-                        <td style="color: var(--electric-blue);">${p.vehicle_id}</td>
+                        <td style="opacity: 0.8; font-size: 0.8rem;">${new Date(p.prediction_date).toLocaleDateString()}</td>
+                        <td style="color: var(--electric-blue); font-weight: 700; letter-spacing: 0.5px;">${p.vehicle_id}</td>
                         <td>${p.engine_model}</td>
+                        <td>${p.vehicle_age || '0'} ans</td>
+                        <td>${p.total_mileage || '0'} km</td>
+                        <td><span class="badge" style="background: ${p.warranty === 'Oui' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)'}; color: ${p.warranty === 'Oui' ? '#ef4444' : '#10b981'}; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600;">${p.warranty}</span></td>
+                        <td>${p.service_start_date || '-'}</td>
                         <td>${p.region || 'Global'}</td>
-                        <td>${p.failure_type}</td>
-                        <td><span style="font-weight: 700;">${p.days_before_failure} j</span></td>
-                        <td><span style="color: ${p.warranty === 'Oui' ? '#ef4444' : '#10b981'}">${p.warranty}</span></td>
-                        <td>${(p.failure_probability * 100).toFixed(0)}%</td>
+                        <td>${p.city || '-'}</td>
+                        <td>${p.defective_part || '-'}</td>
+                        <td style="color: var(--vibrant-purple); font-weight: 600;">${p.impacted_part || '-'}</td>
+                        <td style="font-weight: 600;">${p.failure_type}</td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="width: 40px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden;">
+                                    <div style="width: ${prob}%; height: 100%; background: ${prob > 80 ? '#ef4444' : (prob > 50 ? '#f59e0b' : '#10b981')};"></div>
+                                </div>
+                                <span style="font-weight: 700; color: ${prob > 80 ? '#ef4444' : (prob > 50 ? '#f59e0b' : '#fff')}">${prob.toFixed(0)}%</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span style="background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 20px; font-weight: 700; border: 1px solid rgba(255,255,255,0.1);">
+                                ${p.days_before_failure} j
+                            </span>
+                        </td>
                     `;
                     tbody.appendChild(tr);
                 });
+
+                // Apply initial visibility from checkboxes
+                const colCheckboxes = document.querySelectorAll('#col-dropdown-content input[type="checkbox"]');
+                colCheckboxes.forEach(cb => {
+                    if (!cb.checked) {
+                        const colIdx = parseInt(cb.getAttribute('data-col'));
+                        // Hide header
+                        const th = document.querySelectorAll('#allPredictionsTable thead th')[colIdx - 1];
+                        if (th) th.style.display = 'none';
+                        // Hide cells
+                        const cells = document.querySelectorAll(`#allPredictionsTable tbody tr td:nth-child(${colIdx})`);
+                        cells.forEach(td => td.style.display = 'none');
+                    }
+                });
+
+                // Apply Search Filter if exists
+                applySearchFilter();
             });
+    }
+
+    function applySearchFilter() {
+        const input = document.getElementById('prediction-main-filter');
+        if (!input) return;
+        const filter = input.value.toLowerCase();
+        const table = document.getElementById('allPredictionsTable');
+        if (!table) return;
+
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            row.style.display = text.includes(filter) ? '' : 'none';
+        });
     }
 
     // 5b. RH Data Logic
     let hrChartInstance = null;
 
     function loadHRData() {
-        fetch('/api/kpi/hr/regional_stats')
+        fetchAuth('/api/kpi/hr/regional_stats')
             .then(res => res.json())
             .then(data => {
                 // Update KPIs
@@ -381,7 +567,7 @@ document.addEventListener('DOMContentLoaded', function () {
             win.style.transform = 'scale(1)';
             win.style.pointerEvents = 'all';
 
-            fetch('/predict/csv', { method: 'POST', body: formData })
+            fetchAuth('/predict/csv', { method: 'POST', body: formData })
                 .then(res => res.json())
                 .then(data => {
                     if (data.status === 'success') {
@@ -421,7 +607,7 @@ document.addEventListener('DOMContentLoaded', function () {
         chatInput.value = '';
 
         try {
-            const res = await fetch('/ask', {
+            const res = await fetchAuth('/ask', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ question: text })
@@ -539,49 +725,52 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- Profile Management ---
     const btnSaveProfile = document.getElementById('btn-save-profile');
     if (btnSaveProfile) {
-        btnSaveProfile.addEventListener('click', () => {
+        btnSaveProfile.addEventListener('click', async () => {
             const name = document.getElementById('input-name').value;
-            const role = document.getElementById('input-role').value;
-            const email = document.getElementById('input-email').value;
             const phone = document.getElementById('input-phone').value;
 
-            // Save
-            const profile = { name, role, email, phone };
-            localStorage.setItem('user_profile', JSON.stringify(profile));
+            try {
+                const res = await fetchAuth('/api/auth/profile', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ full_name: name, phone: phone })
+                });
 
-            // Update Visuals immediately
-            document.getElementById('profile-name-display').textContent = name;
-            document.getElementById('profile-role-display').textContent = role;
-
-            // Update Sidebar
-            const sidebarName = document.querySelector('.user-pill div[style*="font-weight: 600"]');
-            const sidebarRole = document.querySelector('.user-pill div[style*="var(--text-muted)"]');
-            if (sidebarName) sidebarName.textContent = name;
-            if (sidebarRole) sidebarRole.textContent = role;
-
-            alert("Modifications enregistrées !");
+                if (res.ok) {
+                    document.getElementById('profile-name-display').textContent = name;
+                    const sidebarName = document.querySelector('.user-pill div[style*="font-weight: 600"]');
+                    if (sidebarName) sidebarName.textContent = name;
+                    alert("Modifications enregistrées !");
+                }
+            } catch (err) {
+                alert("Erreur lors de la sauvegarde.");
+            }
         });
     }
 
-    // Load Profile
-    const savedProfileStr = localStorage.getItem('user_profile');
-    if (savedProfileStr) {
-        const p = JSON.parse(savedProfileStr);
-        if (p.name) {
-            document.getElementById('input-name').value = p.name;
-            document.getElementById('profile-name-display').textContent = p.name;
-            const sidebarName = document.querySelector('.user-pill div[style*="font-weight: 600"]');
-            if (sidebarName) sidebarName.textContent = p.name;
+    // Load Profile from Backend
+    async function loadUserProfile() {
+        try {
+            const res = await fetchAuth('/api/auth/me');
+            if (res.ok) {
+                const p = await res.json();
+                document.getElementById('input-name').value = p.full_name;
+                document.getElementById('profile-name-display').textContent = p.full_name;
+                document.getElementById('profile-role-display').textContent = p.role;
+                document.getElementById('input-role').value = p.role;
+                document.getElementById('input-email').value = p.email;
+                document.getElementById('input-phone').value = p.phone;
+
+                const sidebarName = document.querySelector('.user-pill div[style*="font-weight: 600"]');
+                const sidebarRole = document.querySelector('.user-pill div[style*="var(--text-muted)"]');
+                if (sidebarName) sidebarName.textContent = p.full_name;
+                if (sidebarRole) sidebarRole.textContent = p.role;
+            }
+        } catch (err) {
+            console.error("Error loading profile", err);
         }
-        if (p.role) {
-            document.getElementById('input-role').value = p.role;
-            document.getElementById('profile-role-display').textContent = p.role;
-            const sidebarRole = document.querySelector('.user-pill div[style*="var(--text-muted)"]');
-            if (sidebarRole) sidebarRole.textContent = p.role;
-        }
-        if (p.email) document.getElementById('input-email').value = p.email;
-        if (p.phone) document.getElementById('input-phone').value = p.phone;
     }
+    loadUserProfile();
 
     // --- Security (Password) ---
     const btnChangePwd = document.getElementById('btn-change-pwd');
@@ -600,22 +789,29 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            // Simulate API Call
+            // API Call
             btnChangePwd.textContent = "Traitement...";
-            setTimeout(() => {
-                alert("Mot de passe mis à jour avec succès !");
+            fetchAuth('/api/auth/change-password', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ current_password: current, new_password: newP })
+            }).then(res => {
+                if (res.ok) {
+                    alert("Mot de passe mis à jour avec succès !");
+                    document.getElementById('current-pwd').value = '';
+                    document.getElementById('new-pwd').value = '';
+                    document.getElementById('confirm-pwd').value = '';
+                } else {
+                    alert("Erreur : Vérifiez votre ancien mot de passe.");
+                }
                 btnChangePwd.textContent = "Mettre à jour le mot de passe";
-                // Clear fields
-                document.getElementById('current-pwd').value = '';
-                document.getElementById('new-pwd').value = '';
-                document.getElementById('confirm-pwd').value = '';
-            }, 1000);
+            });
         });
     }
 
     // 9. Report Downloads Logic
     function downloadReport(url, filename) {
-        fetch(url)
+        fetchAuth(url)
             .then(res => {
                 if (res.status === 200) return res.blob();
                 throw new Error("Erreur lors de la génération du rapport");
@@ -659,9 +855,46 @@ document.addEventListener('DOMContentLoaded', function () {
         btnLogout.addEventListener('click', () => {
             if (confirm("Voulez-vous vraiment vous déconnecter ?")) {
                 // Simulate logout
+                // Real logout
+                localStorage.removeItem('access_token');
                 window.location.href = '/login';
             }
         });
+    }
+
+    // 5c. Parts / Inventory Forecast
+    function loadPartsForecast() {
+        const tbody = document.getElementById('partsForecastBody');
+        if (!tbody) return;
+
+        fetchAuth('/api/inventory/forecast')
+            .then(res => res.json())
+            .then(data => {
+                tbody.innerHTML = '';
+                document.getElementById('parts-total-needed').textContent = data.length;
+
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem;">Aucun besoin imminent détecté par l\'IA.</td></tr>';
+                    return;
+                }
+
+                data.forEach(p => {
+                    const tr = document.createElement('tr');
+                    let badgeClass = 'badge-success';
+                    if (p.criticality === 'Élevée') badgeClass = 'badge-danger';
+                    else if (p.criticality === 'Moyenne') badgeClass = 'badge-warning';
+
+                    tr.innerHTML = `
+                        <td style="font-weight: 600; color: var(--electric-blue);">${p.part_name}</td>
+                        <td>${p.quantity_required}</td>
+                        <td>${p.need_date}</td>
+                        <td><span style="font-weight: 700;">${p.days_remaining} j</span></td>
+                        <td><span class="badge-pro ${badgeClass}">${p.criticality}</span></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            })
+            .catch(err => console.error("Error loading parts forecast", err));
     }
 
 });

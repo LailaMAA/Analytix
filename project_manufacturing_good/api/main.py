@@ -9,15 +9,43 @@ import os
 import sys
 from typing import Optional
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 # Ajout du chemin pour importer les modules locaux
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # from api.database import init_db, get_db, PredictionRecord # REMOVED
-from api.structure_db import init_enterprise_db, SessionLocal, FactPrediction, DimRegion, DimVehicle, DimPart, FactMaintenanceLog, DimDealer, FactVehicleFailure, DimFailureType, FactInvestmentForecast, FactHRForecast, FactInventory, FactInventoryForecast, DimDate
+from api.structure_db import init_enterprise_db, SessionLocal, FactPrediction, DimRegion, DimVehicle, DimPart, FactMaintenanceLog, DimDealer, FactVehicleFailure, DimFailureType, FactInvestmentForecast, FactHRForecast, FactInventory, FactInventoryForecast, DimDate, User
 from inference.prediction_service import InferencePipeline
 from nlq_engine.sql_agent import query_enterprise_data
 from agents.driver_notification import DriverNotificationAgent # NEW IMPORTS
+
+# Configuration Sécurité
+SECRET_KEY = "analytix_care_secret_2026" # Change in production
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 24 hours
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/token")
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
 # Global state
 pipeline = None
@@ -33,8 +61,28 @@ async def lifespan(app: FastAPI):
     
     # 2. Initialisation des bases de données
     print("  - Initialisation des bases de données...")
-    # init_db() # REMOVED
     init_enterprise_db()
+    
+    # 3. Création de l'utilisateur admin par défaut
+    db = SessionLocal()
+    try:
+        admin_email = "admin@analytixcare.com"
+        exists = db.query(User).filter(User.email == admin_email).first()
+        if not exists:
+            print("  - Création de l'utilisateur admin par défaut...")
+            new_user = User(
+                email=admin_email,
+                full_name="Admin AnalytixCare",
+                role="Directeur Industriel",
+                phone="+212 600-000000",
+                hashed_password=get_password_hash("admin123"),
+                is_active=True
+            )
+            db.add(new_user)
+            db.commit()
+    finally:
+        db.close()
+        
     print("✅ API prête !")
     yield
     print(">> Arrêt de l'API...")
@@ -54,6 +102,69 @@ def get_enterprise_db():
 @app.get("/", include_in_schema=False)
 async def root():
     return RedirectResponse(url="/login")
+
+# --- AUTH & USER ROUTES ---
+
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_enterprise_db)):
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        raise credentials_exception
+    return user
+
+@app.post("/api/auth/token")
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_enterprise_db)):
+    user = db.query(User).filter(User.email == form_data.username).first()
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/api/auth/me")
+async def read_users_me(current_user: User = Depends(get_current_user)):
+    return {
+        "email": current_user.email,
+        "full_name": current_user.full_name,
+        "role": current_user.role,
+        "phone": current_user.phone
+    }
+
+@app.put("/api/auth/profile")
+async def update_profile(data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_enterprise_db)):
+    current_user.full_name = data.get("full_name", current_user.full_name)
+    current_user.phone = data.get("phone", current_user.phone)
+    db.commit()
+    return {"status": "success"}
+
+@app.put("/api/auth/change-password")
+async def change_password(data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_enterprise_db)):
+    current_pwd = data.get("current_password")
+    new_pwd = data.get("new_password")
+    
+    if not verify_password(current_pwd, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Ancien mot de passe incorrect")
+    
+    current_user.hashed_password = get_password_hash(new_pwd)
+    db.commit()
+    return {"status": "success"}
 
 @app.get("/login", response_class=HTMLResponse)
 async def read_login():
@@ -258,10 +369,22 @@ def get_financial_kpi(db: Session = Depends(get_enterprise_db)):
 
         total_maint_cost = db.query(func.sum(FactMaintenanceLog.cost)).scalar() or 200000
         
+        # Enhanced ROI & Savings logic for Advanced Intelligence
+        hr_stats = get_resources_kpi(db)
+        hr_availability = hr_stats.get("availability_rate", 80)
+        
+        # HR Optimization Savings: if availability > 80%, we assume 5% saving on maintenance costs
+        hr_opt_savings = 0
+        if hr_availability > 80:
+            hr_opt_savings = total_maint_cost * 0.05
+            
+        potential_savings = (total_maint_cost * 0.22) + hr_opt_savings
+
         return {
             "avg_roi": round(inv_summary[0] or 15.5, 1),
             "total_investment": inv_summary[1] or 450000,
-            "potential_savings": round(total_maint_cost * 0.22, 0),
+            "potential_savings": round(potential_savings, 0),
+            "hr_optimization_savings": round(hr_opt_savings, 0),
             "efficiency_gain": 18.4,
             "chart": {
                 "labels": labels,
@@ -361,6 +484,50 @@ def get_inventory_kpi(db: Session = Depends(get_enterprise_db)):
     except Exception as e:
         print(f"Error Inventory KPI: {e}")
         return {"critical_stock_count": 0, "total_stock_value": 0, "out_of_stock": 0, "supply_chain_health": 85}
+
+@app.get("/api/inventory/forecast")
+def get_inventory_forecast(db: Session = Depends(get_enterprise_db)):
+    """
+    Analyzes FactPrediction to identify required parts based on AI forecasts.
+    Aggregates predicted parts and their criticality.
+    """
+    try:
+        # Fetch predictions where failure is imminent (e.g., probability > 0.5)
+        # We group by the 'impacted_part' (which corresponds to DimPart.part_name usually)
+        # Or 'defective_part' if used.
+        
+        results = db.query(
+            FactPrediction.impacted_part,
+            func.count(FactPrediction.prediction_id).label("count"),
+            func.min(FactPrediction.predicted_days_before_failure).label("soonest_days"),
+            func.avg(FactPrediction.failure_probability).label("avg_prob")
+        ).filter(FactPrediction.failure_probability > 0.4)\
+         .group_by(FactPrediction.impacted_part)\
+         .order_by(func.min(FactPrediction.predicted_days_before_failure).asc()).all()
+         
+        forecast = []
+        for r in results:
+            part_name = r[0] or "Pièce Inconnue"
+            if part_name.lower() in ["aucune", "nan", ""]: continue
+            
+            # Estimate a date
+            target_date = (datetime.now() + timedelta(days=int(r[2] or 0))).strftime("%Y-%m-%d")
+            
+            # Criticality based on probability
+            crit = "Élevée" if r[3] > 0.75 else ("Moyenne" if r[3] > 0.5 else "Basse")
+            
+            forecast.append({
+                "part_name": part_name,
+                "quantity_required": r[1],
+                "need_date": target_date,
+                "days_remaining": r[2],
+                "criticality": crit
+            })
+            
+        return forecast
+    except Exception as e:
+        print(f"Error Inventory Forecast: {e}")
+        return []
 
 @app.post("/ask")
 async def ask_question(request: Request):

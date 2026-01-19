@@ -8,74 +8,120 @@
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         :root {
-            --bg-dark: #0f172a;
-            --glass: rgba(255, 255, 255, 0.05);
+            --bg-dark: #030712;
+            --electric-blue: #3b82f6;
+            --glass: rgba(15, 23, 42, 0.7);
             --border: rgba(255, 255, 255, 0.1);
+            --text-muted: #94a3b8;
         }
 
         body {
             font-family: 'Outfit', sans-serif;
-            background: var(--bg-dark);
+            background: radial-gradient(circle at top right, #1e293b, #030712);
             color: white;
-            margin: 0;
             display: flex;
-            flex-direction: column;
+            justify-content: center;
             align-items: center;
             min-height: 100vh;
             padding: 20px;
+            overflow-x: hidden;
         }
 
         .container {
             width: 100%;
             max-width: 450px;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .card {
             background: var(--glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 24px;
-            margin-bottom: 20px;
+            border-radius: 28px;
+            padding: 40px;
+            margin-bottom: 24px;
             text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 12px;
+            font-weight: 700;
         }
 
         input {
             width: 100%;
-            padding: 16px;
-            margin: 10px 0;
-            border-radius: 12px;
-            background: rgba(0, 0, 0, 0.3);
+            padding: 18px;
+            margin: 20px 0 12px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.03);
             border: 1px solid var(--border);
             color: white;
             font-size: 1.1rem;
             text-align: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            outline: none;
+        }
+
+        input:focus {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: var(--electric-blue);
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
         }
 
         button {
             width: 100%;
-            padding: 16px;
-            border-radius: 12px;
+            padding: 18px;
+            border-radius: 16px;
             border: none;
-            font-weight: bold;
+            font-weight: 700;
             font-size: 1rem;
             cursor: pointer;
-            background: #3b82f6;
+            background: var(--electric-blue);
             color: white;
-            transition: 0.2s;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 20px -5px rgba(59, 130, 246, 0.4);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px -5px rgba(59, 130, 246, 0.6);
+            filter: brightness(1.1);
         }
 
         button:active {
-            transform: scale(0.98);
+            transform: scale(0.96);
         }
 
         .status-icon {
-            font-size: 4rem;
-            margin-bottom: 10px;
+            font-size: 5rem;
+            margin-bottom: 16px;
+            filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3));
         }
 
         .hidden {
-            display: none;
+            display: none !important;
         }
     </style>
 </head>
@@ -85,7 +131,7 @@
     <div class="container">
         <!-- HEADER -->
         <div style="text-align: center; margin-bottom: 30px; margin-top: 20px;">
-            <ion-icon name="speedometer" style="font-size: 3rem; color: #3b82f6;"></ion-icon>
+            <ion-icon name="car-sport" style="font-size: 3rem; color: var(--electric-blue);"></ion-icon>
             <h1 style="margin: 5px 0; font-size: 1.5rem;">Espace Conducteur</h1>
             <p style="color: #94a3b8; margin: 0;">Assistant de Sécurité IA</p>
         </div>

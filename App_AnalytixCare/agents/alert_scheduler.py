@@ -33,11 +33,11 @@ class AlertScheduler:
             if db.query(FactPrediction).count() == 0:
                 return
 
-            # Check predictions from last hour
-            threshold_time = datetime.utcnow() - timedelta(hours=1)
+            # Check predictions from last 24 hours (wide window to catch everything)
+            threshold_time = datetime.utcnow() - timedelta(hours=24)
             
             critical_preds = db.query(FactPrediction).filter(
-                FactPrediction.failure_probability > 0.8,
+                FactPrediction.failure_probability > 0.7, # Lowered threshold to 0.7 for better reactivity
                 FactPrediction.prediction_date >= threshold_time
             ).all()
 
@@ -48,11 +48,12 @@ class AlertScheduler:
                 
                 vid_str = vehicle.original_vehicle_id
                 
-                # Deduplication: Check if we already alerted for this vehicle recently
+                # Deduplication: Only avoid duplicate alerts if one was sent in the LAST HOUR
+                recent_alert_threshold = datetime.utcnow() - timedelta(hours=1)
                 exists = db.query(FactNotification).filter(
                     FactNotification.vehicle_id == vid_str,
                     FactNotification.level == 'Critical',
-                    FactNotification.created_at >= threshold_time
+                    FactNotification.created_at >= recent_alert_threshold
                 ).first()
                 
                 if not exists:

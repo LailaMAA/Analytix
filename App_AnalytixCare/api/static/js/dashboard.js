@@ -1031,8 +1031,9 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
 
         // Initial Check & Polling
+        // Initial Checks & Sync
         checkNotifications();
-        setInterval(checkNotifications, 30000); // Check every 30s
+        setInterval(checkNotifications, 20000); // Check every 20s for better reactivity
     }
 
     // 12. Daily AI Briefing Logic

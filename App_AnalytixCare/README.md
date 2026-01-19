@@ -1,613 +1,82 @@
-# AnalytixCare - Predictive Industrial Maintenance Platform
+# Projet Maintenance Prédictive - Industrie 4.0
 
-## Overview
-
-AnalytixCare is an operational Industry 4.0 maintenance platform designed to transform machine data into strategic decisions. This project implements a robust architecture structured into specialized engines, ensuring a complete loop from raw data to decision intelligence.
-
-## System Architecture
-
-The entire architecture has been deployed in a modular fashion, ensuring clear separation of technical responsibilities and fluid interoperability.
-
-```mermaid
-graph TD
-    Client[User Interface] --> API[FastAPI Server]
-  
-    subgraph Services
-        API --> Inference[ML Inference Engine]
-        API --> AgentBriefing[AI Synthesis Agent]
-        API --> QueryEngine[Natural Query Engine]
-    end
-
-    subgraph Intelligence
-        Inference --> LGBM[LightGBM Models]
-        AgentBriefing --> LLM[DeepSeek / GitHub Models]
-        QueryEngine --> SQLGen[SQL Agent]
-    end
-
-    subgraph Persistence
-        API --> DB[(SQLite / SQLAlchemy)]
-        AgentBriefing --> Cache[MD Cache System]
-    end
-  
-    Scheduler[Alert Scheduler] --> DB
-
-```
+Ce projet implémente un système complet de maintenance prédictive pour les moteurs industriels au Maroc. Il utilise le Machine Learning pour prédire simultanément le **type de panne** et le **délai avant la prochaine panne**.
 
 ---
 
-## Technical Project Structure
+## 🚀 Architecture du Système
 
-### **`api/`** - FastAPI Backend Server
-
-#### `main.py` (967 lines)
-**Role**: Main application entry point. FastAPI server orchestrating all services.
-
-**Responsibilities**:
-- Application lifecycle configuration (lifespan)
-- ML models and database initialization at startup
-- JWT authentication management (login, tokens, user profiles)
-- REST endpoint exposure for:
-  - Financial KPIs (`/api/kpi/financial`)
-  - Human resources KPIs (`/api/kpi/resources`, `/api/kpi/hr/regional_stats`)
-  - Inventory KPIs (`/api/kpi/inventory`, `/api/inventory/forecast`)
-  - Failure distribution (`/api/kpi/failures`)
-  - Global statistics (`/api/kpi/stats`)
-  - ML predictions (`/predict/csv`, `/predictions`)
-  - Notifications (`/api/notifications`)
-  - NLQ queries (`/ask`)
-  - Excel report export (`/api/export/audit`)
-- Static files mounting (HTML, CSS, JS)
-- Automatic alert scheduler startup
-
-**Technologies**: FastAPI, SQLAlchemy, Jose (JWT), Passlib (hashing), Pandas, Uvicorn
+1.  **Entrée des données** : Chargement de fichiers CSV ou données via API.
+2.  **Prétraitement** : Nettoyage, encodage catégoriel (LabelEncoder) et normalisation (MinMaxScaler).
+3.  **Moteur ML** : 
+    *   **Classification** (LightGBM) : Prédit le type de panne probable.
+    *   **Régression** (LightGBM) : Estime le nombre de jours restants avant la panne.
+4.  **Backend FastAPI** : Automatise le pipeline et sert les prédictions.
+5.  **Base de Données** : Stockage automatique des résultats dans SQLite pour historisation.
 
 ---
 
-#### `structure_db.py` (266 lines)
-**Role**: Complete relational database schema (Data Warehouse).
+## 📊 Performance des Modèles
 
-**Defined Models**:
+### 🔹 Modèle de Classification (Type de Panne)
+*   **Accuracy** : 90.60%
+*   **F1-Score (macro)** : 90.68%
+*   **Precision (macro)** : 90.68%
+*   **Log Loss** : 0.2948
 
-**Dimensions**:
-- `DimRegion`: Geographic regions and climate
-- `DimFailureType`: Engine failure types
-- `DimPart`: Spare parts catalog (unit cost, criticality)
-- `DimCustomer`: Customers and fleets
-- `DimDealer`: Dealers and technical capacity
-- `DimVehicle`: Vehicles (engine model, age, warranty)
-- `DimDate`: Time dimension (year, month, day)
-- `User`: Platform users (authentication)
-
-**Facts**:
-- `FactVehicleFailure`: Actual failure history
-- `FactPrediction`: AI prediction logs (inputs + outputs)
-- `FactTrainingData`: ML training dataset
-- `FactMaintenanceLog`: Maintenance history and costs
-- `FactInventory`: Stock status by dealer
-- `FactHRForecast`: Technician needs forecasts
-- `FactInventoryForecast`: Stock shortage forecasts
-- `FactInvestmentForecast`: ROI and cost forecasts
-- `FactWarrantyImpact`: Warranty financial impact
-- `FactNotification`: AI agent-generated alerts
-
-**Database**: `Companyx_database.db` (SQLite)
+### 🔹 Modèle de Régression (Jours avant Panne)
+*   **MAE** (Mean Absolute Error) : 0.0667
+*   **RMSE** (Root Mean Squared Error) : 0.0886
+*   **R² Score** : 0.5001
 
 ---
 
-### **`inference/`** - ML Prediction Engine
+## 🛠️ Utilisation de l'API FastAPI
 
-#### `prediction_service.py`
-**Role**: Inference pipeline for engine failure predictions.
-
-**Features**:
-- Loading pre-trained LightGBM models from `models/`
-- Input data preprocessing (normalization, encoding)
-- Simultaneous prediction:
-  - **Classification**: Failure type (Overheating, Lubrication failure, etc.)
-  - **Regression**: Days before failure
-  - **Probability**: Prediction confidence level
-- Strict feature validation (order and presence)
-- Column misalignment error handling
-
-**Models used**:
-- `failure_type_model.joblib`: Failure type classifier
-- `days_before_failure_model.joblib`: Delay regressor
-- `scaler.pkl`: StandardScaler normalizer
-- `label_encoders.pkl`: Categorical variable encoders
-- `feature_names.pkl`: Ordered list of expected features
-
----
-
-### **`preprocessing/`** - Data Preparation
-
-#### `preprocess.py`
-**Role**: Raw data cleaning and normalization before training or inference.
-
-**Transformations**:
-- Accent removal and Unicode normalization
-- Data type conversion (dates, numerics)
-- Missing value handling
-- Column consistency validation
-- Column name mapping (FR → EN)
-
----
-
-### **`training/`** - Model Training Pipeline
-
-#### `train_failure_type.py` (101 lines)
-**Role**: Training script for the failure type classification model.
-
-**Process**:
-1. **Data Loading**: Reads preprocessed dataset from `data/processed/dataset_pretraite.csv`
-2. **Feature Selection**: Drops target variables (`failure_type`, `days_before_failure`) and identifiers (`vehicle_id`)
-3. **Train/Test Split**: 80/20 split with stratification to maintain class balance
-4. **Model Training**: LightGBM Classifier with optimized hyperparameters:
-   - `n_estimators`: 124
-   - `learning_rate`: 0.029
-   - `num_leaves`: 128
-   - `max_depth`: 7
-   - `subsample`: 0.878
-   - `colsample_bytree`: 0.692
-5. **Evaluation Metrics**:
-   - Accuracy
-   - Balanced Accuracy
-   - Precision (macro)
-   - Recall (macro)
-   - F1-score (macro)
-   - Log Loss
-   - Confusion Matrix
-   - Classification Report
-6. **Experiment Tracking**: Uses MLflow via `ExperimentTracker` to log parameters, metrics, and model
-7. **Model Export**: Saves trained model to `models/failure_type_model.joblib`
-
-**Output**: Classification model predicting 6 failure types (Overheating, Lubrication failure, Injection failure, Cooling failure, Electrical failure, Mechanical wear)
-
----
-
-#### `train_days_before_failure.py` (97 lines)
-**Role**: Training script for the days-before-failure regression model.
-
-**Process**:
-1. **Data Loading**: Reads preprocessed dataset from `data/processed/dataset_pretraite.csv`
-2. **Feature Selection**: Drops target variable (`days_before_failure`)
-3. **Train/Test Split**: 80/20 split
-4. **Model Training**: LightGBM Regressor with optimized hyperparameters:
-   - `n_estimators`: 500
-   - `learning_rate`: 0.05
-   - `num_leaves`: 31
-   - `max_depth`: -1 (unlimited)
-   - `subsample`: 0.8
-   - `colsample_bytree`: 0.8
-5. **Evaluation Metrics**:
-   - MAE (Mean Absolute Error)
-   - RMSE (Root Mean Squared Error)
-   - R² Score
-   - Explained Variance
-6. **Experiment Tracking**: Uses MLflow to log training runs
-7. **Model Export**: Saves trained model to `models/days_before_failure_model.joblib`
-
-**Output**: Regression model predicting the number of days until engine failure
-
-**Performance Metrics** (on test set):
-- **MAE**: 14.62 days - Average prediction error is ~15 days
-- **RMSE**: 20.06 days - Penalizes larger errors more heavily
-- **R²**: 0.6458 - Model explains 64.58% of variance in failure timing
-- **Explained Variance**: 0.6460 - Strong predictive capability for maintenance scheduling
-
----
-
-**Training Workflow**:
+### Démarrage
 ```bash
-# 1. Preprocess raw data
-python preprocessing/preprocess.py
-
-# 2. Train failure type classifier
-python training/train_failure_type.py
-
-# 3. Train days-before-failure regressor
-python training/train_days_before_failure.py
-```
-
-**Dependencies**: Both scripts use `ml_logic.tracking.ExperimentTracker` (aliased from `discovery_engine.tracking`) for MLflow integration.
-
----
-
-### Model Performance Summary
-
-#### Failure Type Classification Model
-**Overall Accuracy**: 91.60% (3,664 correct predictions out of 4,000 test samples)
-
-**Per-Class Performance**:
-| Failure Type | Precision | Recall | F1-Score | Support |
-|--------------|-----------|--------|----------|---------|
-| Overheating (0) | 0.80 | 0.82 | 0.81 | 574 |
-| Lubrication Failure (1) | 0.98 | 0.99 | 0.99 | 569 |
-| Injection Failure (2) | 0.99 | 0.95 | 0.97 | 568 |
-| Cooling Failure (3) | 0.96 | 0.98 | 0.97 | 560 |
-| Electrical Failure (4) | 0.82 | 0.75 | 0.78 | 587 |
-| Mechanical Wear (5) | 0.97 | 0.98 | 0.98 | 579 |
-| No Failure (6) | 0.89 | 0.94 | 0.91 | 563 |
-
-**Key Insights**:
-- **Best Performance**: Lubrication Failure (F1: 0.99) and Mechanical Wear (F1: 0.98) - Nearly perfect detection
-- **Challenging Class**: Electrical Failure (F1: 0.78) - Most confusion with Overheating (120 misclassifications)
-- **Balanced Accuracy**: 91.69% - Model performs consistently across all failure types
-- **Log Loss**: 0.1739 - High confidence in predictions with low uncertainty
-
-**Confusion Matrix Analysis**:
-- Main confusion: Overheating ↔ Electrical Failure (120 + 93 errors)
-- This is expected as both can manifest similar symptoms (temperature anomalies)
-- All other failure types are well-separated with minimal cross-confusion
-
-#### Days Before Failure Regression Model
-**Prediction Accuracy**: Average error of ±14.6 days on a typical failure timeline
-
-**Business Impact**:
-- **Maintenance Planning**: 2-week prediction window allows optimal resource allocation
-- **Cost Optimization**: Early warnings enable preventive maintenance vs. emergency repairs
-- **Fleet Management**: R² of 0.65 provides reliable risk stratification for vehicle prioritization
-
----
-
-### **`query_engine/`** - NLQ Engine (Natural Language Query)
-
-#### `sql_agent.py`
-**Role**: Conversational agent to query the database in natural language.
-
-**Features**:
-- Automatic translation of French questions to SQL
-- LLM usage (Google Gemini or DeepSeek) to generate queries
-- Secure query execution on `Companyx_database.db`
-- Natural language result formatting
-- SQL error handling and automatic reformulation
-
-**Example**: "How many vehicles are under warranty?" → `SELECT COUNT(*) FROM DIM_VEHICLE WHERE under_warranty = 'Oui'`
-
----
-
-### **`agents/`** - Autonomous Agents
-
-#### `alert_scheduler.py`
-**Role**: Background scheduler for continuous risk monitoring.
-
-**Features**:
-- Periodic execution (every 60 seconds)
-- Critical prediction detection (probability > 80%)
-- Automatic notification generation in `FactNotification`
-- Alert deduplication (avoids duplicates)
-- Daemon thread for clean shutdown with API
-
----
-
-#### `driver_notification.py`
-**Role**: Dedicated agent for drivers to check their vehicle status.
-
-**Features**:
-- Endpoint `/api/driver/alerts/{vehicle_id}`
-- Failure prediction search for a specific vehicle
-- Status return: `OK`, `WARNING`, or `CRITICAL`
-- Action recommendations (inspection, urgent maintenance)
-
----
-
-### **`agent_ai/`** - Generative Artificial Intelligence
-
-#### `ai_agent.py`
-**Role**: Strategic synthesis agent using LLMs to generate briefings.
-
-**Features**:
-- KPI and database trend analysis
-- Executive report generation in natural language
-- Cost-saving opportunity and risk identification
-- Strategic recommendations for management
-
----
-
-#### `llm_client.py`
-**Role**: Unified client for LLM calls (multi-provider abstraction).
-
-**Supported providers**:
-- Google Gemini (via API)
-- DeepSeek (via API)
-- GitHub Models (fallback)
-
-**Features**:
-- API key management from `.env`
-- Automatic retry on failure
-- Provider fallback
-
----
-
-### **`core/`** - Configuration and Utilities
-
-#### `config.py`
-**Role**: Application configuration centralization.
-
-**Content**:
-- Database paths
-- ML model parameters
-- LLM configuration
-- Environment variables
-
----
-
-#### `logging.py`
-**Role**: Centralized logging system for debugging and auditing.
-
-**Features**:
-- Structured logs (timestamp, level, module)
-- Log file rotation
-- Levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
-
----
-
-### **`discovery_engine/`** - Exploration and Traceability
-
-#### `tracking.py`
-**Role**: Operations tracking and performance metrics system.
-
-**Features**:
-- Prediction traceability
-- Model performance metrics
-- Compliance audit logs
-
----
-
-### **`models/`** - Pre-trained ML Models
-
-| File | Description |
-|------|-------------|
-| `failure_type_model.joblib` | LightGBM classifier for failure type (6 classes) |
-| `days_before_failure_model.joblib` | LightGBM regressor for delay before failure |
-| `scaler.pkl` | StandardScaler for numeric feature normalization |
-| `label_encoders.pkl` | LabelEncoders for categorical variables (region, engine model) |
-| `feature_names.pkl` | Ordered list of 19 expected features |
-| `features.joblib` | Feature metadata (types, ranges) |
-
-**Training**: Models trained on `FACT_TRAINING_DATA` with cross-validation.
-
----
-
-### **`api/static/`** - User Interface
-
-#### **HTML**
-
-##### `login.html`
-**Role**: Authentication page.
-
-**Features**:
-- Email/password form
-- Call to `/api/auth/token` to obtain JWT
-- Token storage in `localStorage`
-- Redirect to `/dashboard` after login
-
----
-
-##### `dashboard.html`
-**Role**: Main supervision interface (control center).
-
-**Sections**:
-- **Real-time KPIs**: Critical fleet, costs, reliability, parts availability
-- **Charts**: Failure distribution, costs by region, warranty, ROI
-- **Prediction table**: Latest AI predictions with filters
-- **Simulators**: HR, inventory, investment forecasts
-- **User profile**: Information and password modification
-- **Notification center**: Real-time critical alerts
-
-**Technologies**: Chart.js, Fetch API, DOM manipulation
-
----
-
-##### `driver.html`
-**Role**: Mobile portal for drivers.
-
-**Features**:
-- Vehicle ID input
-- Health status display (OK, WARNING, CRITICAL)
-- Action recommendations
-- Responsive interface (mobile-first)
-
----
-
-#### **JavaScript**
-
-##### `js/dashboard.js`
-**Role**: Dashboard business logic.
-
-**Features**:
-- Chart.js chart initialization
-- KPI polling every 30 seconds
-- Filter management (region, engine model, vehicle)
-- CSV file upload for predictions
-- Excel report export
-- User profile management (JWT)
-- Notification system with toasts
-- Section navigation (SPA)
-
----
-
-#### **CSS**
-
-##### `css/analytixcare.css`
-**Role**: Main application styles.
-
-**Content**:
-- Design system (colors, typography, spacing)
-- Reusable components (cards, buttons, inputs)
-- Responsive layout (grid, flexbox)
-- Animations and transitions
-
----
-
-##### `css/premium.css`
-**Role**: Premium styles for advanced elements.
-
-**Content**:
-- Glassmorphism for modals
-- Advanced gradients and shadows
-- Loading animations
-- Sophisticated hover effects
-
----
-
-### **`scripts/`** - Maintenance Utilities
-
-#### `clear_fact_prediction.py`
-**Role**: `FACT_PREDICTION` table cleanup script.
-
-**Usage**:
-```bash
-python scripts/clear_fact_prediction.py
-```
-
-**Features**:
-- Deletion of all prediction records
-- Display of deleted record count
-- Error handling with rollback
-
----
-
-### **`data/`** - Training and Test Data
-
-**Structure**:
-- `raw/`: Raw data (original CSV)
-- `processed/`: Cleaned and normalized data
-
-**Typical files**:
-- `Pannes_moteurs_equilibre_Maroc.csv`: Training dataset
-- `test_pree.csv`: Test data for validation
-
----
-
-## Configuration Files
-
-### `.env`
-**Role**: Sensitive environment variables (not versioned).
-
-**Content**:
-```env
-GOOGLE_API_KEY=your_key_here
-DEEPSEEK_API_KEY=your_key_here
-DATABASE_URL=sqlite:///./Companyx_database.db
-SECRET_KEY=analytix_care_secret_2026
-```
-
----
-
-### `requirements.txt`
-**Role**: Project Python dependencies.
-
-**Main libraries**:
-- `fastapi`: Web framework
-- `uvicorn`: ASGI server
-- `sqlalchemy`: ORM
-- `lightgbm`: ML models
-- `pandas`: Data manipulation
-- `scikit-learn`: ML preprocessing
-- `python-jose`: JWT
-- `passlib`: Password hashing
-- `langchain`: LLM framework
-
----
-
-### `correspondances.xlsx`
-**Role**: Reference mapping between failure types and affected parts.
-
-**Content**:
-- Column A: Failure type
-- Column B: Defective parts
-- Column C: Impacted parts
-
-**Usage**: Reference to enrich predictions with concerned parts.
-
----
-
-## Platform Launch
-
-### 1. Installation
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Configuration
-Create a `.env` file with your API keys:
-```env
-GOOGLE_API_KEY=your_google_api_key
-DEEPSEEK_API_KEY=your_deepseek_api_key
-```
-
-### 3. Startup
-```bash
-# From App_AnalytixCare/ folder
 python api/main.py
 ```
 
-Or use the batch script (Windows):
+### Endpoints Principaux
+*   `POST /predict/csv` : Envoyer un fichier CSV pour analyse massive.
+*   `GET /predictions` : Consulter l'historique des prédictions stockées en base de données.
+*   `GET /docs` : Accéder à l'interface interactive Swagger.
+
+---
+
+## 🛠️ Outils et Automatisation
+
+### 1. Test Rapide de l'API
+Pour envoyer un fichier CSV à l'API et voir les résultats directement dans votre terminal :
 ```bash
-# From root folder
-.\lancer_api.bat
+python scripts/test_upload.py data/raw/Pannes_moteurs_equilibre_Maroc.csv
 ```
 
-### 4. Access
-- **Dashboard**: http://127.0.0.1:8000/dashboard
-- **Login**: http://127.0.0.1:8000/login
-- **Driver Portal**: http://127.0.0.1:8000/driver
-- **API Docs**: http://127.0.0.1:8000/docs
-
-### 5. Default credentials
-- **Email**: `admin@analytixcare.com`
-- **Password**: `admin123`
+### 2. Réentraînement Automatisé
+Si vous avez de nouvelles données et souhaitez mettre à jour vos modèles (avec versionnement automatique) :
+```bash
+python scripts/retrain.py
+```
+*Note : Cette commande crée une version horodatée dans `models/versions/` et met à jour les modèles utilisés par l'API.*
 
 ---
 
-## Data Flows
-
-### 1. ML Prediction
-```
-CSV Upload → preprocessing.py → prediction_service.py → FactPrediction (DB) → Dashboard
-```
-
-### 2. Automatic Alerts
-```
-alert_scheduler.py (polling) → FactPrediction (DB) → FactNotification (DB) → Dashboard (toasts)
-```
-
-### 3. NLQ Query
-```
-User Question → sql_agent.py → LLM (SQL generation) → DB Query → Natural Language Response
-```
-
-### 4. AI Briefing
-```
-ai_agent.py → DB Analysis → LLM (synthesis) → Executive Report (Markdown)
-```
+## 📂 Structure du Projet
+*   `data/` : Datasets bruts et traités.
+*   `models/` : Modèles entraînés (`.joblib`) et fichiers de preprocessing (`.pkl`).
+*   `preprocessing/` : Scripts de nettoyage et préparation.
+*   `training/` : Scripts d'entraînement des modèles.
+*   `inference/` : Logique de prédiction réutilisable.
+*   `api/` : Application backend FastAPI et gestion de la base de données.
 
 ---
 
-## Database
-
-### Main Schema: `Companyx_database.db`
-
-**Dimensions**: 7 tables (Region, FailureType, Part, Customer, Dealer, Vehicle, Date)  
-**Facts**: 10 tables (VehicleFailure, Prediction, TrainingData, MaintenanceLog, Inventory, HRForecast, InventoryForecast, InvestmentForecast, WarrantyImpact, Notification)  
-**Users**: 1 table (User)
-
-**Typical size**: ~15 MB (with production data)
+## ✅ Bonnes Pratiques Appliquées
+1.  **Isolation** : Séparation stricte entre l'entraînement et l'inférence.
+2.  **Robustesse** : Gestion automatique des encodages et du scaling lors des nouvelles prédictions.
+3.  **Traçabilité** : Historisation de chaque prédiction avec timestamp et ID véhicule dans la base de données.
+4.  **Pérennité** : Modèles versionnés et réutilisables via un service standardisé.
 
 ---
-
-## Key Technologies
-
-| Category | Technologies |
-|----------|-------------|
-| **Backend** | FastAPI, SQLAlchemy, Uvicorn |
-| **ML** | LightGBM, Scikit-learn, Pandas |
-| **Generative AI** | Google Gemini, DeepSeek, LangChain |
-| **Frontend** | Vanilla JS, Chart.js, HTML5/CSS3 |
-| **Database** | SQLite |
-| **Security** | JWT (Jose), Bcrypt (Passlib) |
-| **Deployment** | Python 3.9+, Windows/Linux |
-
----
-
-AnalytixCare - Industrial intelligence implementation at the service of your excellence.
+*Développé pour l'optimisation de la maintenance industrielle au Maroc.*

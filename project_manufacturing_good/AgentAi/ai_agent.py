@@ -97,11 +97,15 @@ class MaintenanceAgent:
         # 1. Check Cache
         date_str = self.today.strftime('%Y-%m-%d')
         cache_file = os.path.join(self.cache_dir, f"briefing_{date_str}.md")
+        print(f"[DEBUG] Cache Dir: {self.cache_dir}")
+        print(f"[DEBUG] Cache File: {cache_file}")
         
         if os.path.exists(cache_file):
             print(f"[AGENT] (CACHE) Rapport trouve en cache : {cache_file}")
             with open(cache_file, "r", encoding="utf-8") as f:
                 return f.read()
+        else:
+            print(f"[DEBUG] Cache file NOT found.")
 
         # Horizons
         short_term = 7
